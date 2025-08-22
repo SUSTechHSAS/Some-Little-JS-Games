@@ -1,0 +1,602 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"/>
+  <title>函数拟合猜猜猜</title>
+  <style>
+    :root{
+      --bg:#0f172a;
+      --card:#111827;
+      --fg:#e5e7eb;
+      --muted:#9ca3af;
+      --accent:#60a5fa;
+      --good:#22c55e;
+      --bad:#ef4444;
+    }
+    *{box-sizing:border-box}
+    body{ margin:0; background:var(--bg); color:var(--fg);
+      font-family: system-ui, -apple-system,"Segoe UI",Roboto,Helvetica,Arial,"Apple Color Emoji","Segoe UI Emoji"; }
+    header{ padding:16px 16px 8px; }
+    h1{ margin:0 0 6px 0; font-size:20px; font-weight:800; letter-spacing:0.3px; }
+    .sub{ color:var(--muted); font-size:13px; }
+    .card{ background:var(--card); border:1px solid rgba(255,255,255,0.06); border-radius:14px; padding:12px; margin:10px 12px; }
+    .toolbar{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin:8px 0 0; }
+    input[type="text"]{ flex:1; min-width:180px; padding:12px 12px; border-radius:10px; border:1px solid rgba(255,255,255,0.12);
+      background:#0b1020; color:var(--fg); font-size:16px; outline:none; }
+    input::placeholder{ color:#64748b }
+    button{ padding:12px 14px; border:0; border-radius:10px; color:#0b1020; font-weight:700; background:var(--accent); min-width:92px; }
+    .btn-ghost{ background:transparent; color:var(--fg); border:1px solid rgba(255,255,255,0.16) }
+    .hint{ font-size:12px; color:var(--muted); margin-top:8px; line-height:1.5; }
+    .row{ display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; margin:8px 0; }
+    .pill{ font-size:12px; color:#0b1020; background:#93c5fd; padding:3px 8px; border-radius:999px; font-weight:700 }
+    .score{ font-weight:800; font-size:18px; letter-spacing:0.3px; }
+    .score.good{ color:var(--good) }
+    .score.bad{ color:var(--bad) }
+    .status{ font-size:14px; color:var(--muted) }
+    .legend{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; font-size:12px; color:var(--muted) }
+    .dot{ width:10px; height:10px; border-radius:50% }
+    .dot.target{ background:#60a5fa }
+    .dot.guess{ background:#f87171 }
+    canvas{ width:100%; height:auto; touch-action:none } /* 手势交由画布，不滚动页面 */
+    .footer{ text-align:center; color:var(--muted); font-size:12px; padding-bottom:18px; margin-top:6px; }
+    .reveal{ margin-top:8px; font-size:13px; color:#cbd5e1; word-break:break-all; }
+    .kbd{ display:inline-block; padding:1px 6px; border-radius:6px; background:#0b1020; border:1px solid rgba(255,255,255,0.08); font-family:Menlo,Consolas,monospace; font-size:12px; color:#cbd5e1 }
+  </style>
+ <script src="https://cdn.bootcdn.net/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+  <!-- math.js 用于解析用户表达式 -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/14.6.0/math.js"></script>
+</head>
+<body>
+  <header>
+    <h1>函数拟合猜猜猜</h1>
+    <div class="sub">目标函数在 (0,1) 上有定义。支持拖动平移、滚轮缩放、双指捏合缩放；双击/双击触控或“重置视图”复位。你有 10 次机会，≥ 90% 即胜。</div>
+  </header>
+
+  <div class="card">
+    <div class="row">
+      <div class="legend">
+        <span class="dot target"></span> 目标函数
+        <span class="dot guess" style="margin-left:10px"></span> 你的猜测
+      </div>
+      <div class="pill" id="triesBadge">第 1 / 10 次</div>
+    </div>
+    <div style="position:relative; width:100%;">
+      <canvas id="chart" height="280"></canvas>
+    </div>
+    <div class="toolbar">
+      <input id="exprInput" type="text" placeholder="例如：sin(x) + 0.5*x^2 - log(x) 或 (1.5^x) * cos(x)" autocomplete="off" />
+      <button id="submitBtn">提交猜测</button>
+      <button class="btn-ghost" id="resetBtn">重置视图</button>
+      <button class="btn-ghost" id="newBtn">新游戏</button>
+    </div>
+    <div class="hint">
+      - 评分只在区间 (0,1) 上计算。允许：x, sin, cos, tan, atan, arctan, log, ln, pi, e，以及 + - * / ^ 和括号。<br/>
+      - 示例：<span class="kbd">(2^x) + 0.3*sin(log(x))</span>，<span class="kbd">x^3 - 0.4*arctan(x)</span>。按 Enter 也可提交。
+    </div>
+    <div class="row" style="margin-top:6px">
+      <div class="status" id="status">相似度阈值 ≥ 90%</div>
+      <div class="score" id="score">相似度：--</div>
+    </div>
+    <div class="reveal" id="reveal" style="display:none"></div>
+  </div>
+
+  <div class="footer">提示：图像展示范围可大于 (0,1)，但评分严格在 (0,1)。拖动平移、滚轮或双指捏合缩放查看细节。</div>
+
+<script>
+(function(){
+  // 工具函数
+  const rnd = (a,b)=>a+Math.random()*(b-a);
+  const rndInt=(a,b)=>Math.floor(rnd(a,b+1));
+  const choice=arr=>arr[rndInt(0,arr.length-1)];
+  const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
+  const isFiniteNum = v => Number.isFinite(v) && !Number.isNaN(v);
+
+  // 游戏设置
+  const MAX_TRIES = 10;
+  const WIN_THRESHOLD = 90;
+
+  // 采样点
+  const SCORE_X = (()=>{ const xs=[]; const n=250; for(let i=0;i<n;i++){ xs.push((i+0.5)/n); } return xs; })();
+  const PLOT_X = (()=>{ const xs=[]; const n=700, xmin=-1.5, xmax=1.5;
+    for(let i=0;i<n;i++){ xs.push(xmin + (xmax - xmin)*i/(n-1)); } return xs; })();
+
+  // 把函数转成 XY 数据
+  function toXY(f){
+    return PLOT_X.map(x=>{
+      const y = f(x);
+      return isFiniteNum(y) ? {x,y} : {x, y:null};
+    });
+  }
+
+  // 目标函数节点与求值
+  function makeX(){ return {type:'x'}; }
+  function makeUnary(type, inner, extra={}){ return {type, inner, ...extra}; }
+  function evalNode(node, x){
+    try{
+      switch(node.type){
+        case 'x': return x;
+        case 'sin': { const v=evalNode(node.inner,x); if(!isFiniteNum(v)) return NaN; return Math.sin(v); }
+        case 'cos': { const v=evalNode(node.inner,x); if(!isFiniteNum(v)) return NaN; return Math.cos(v); }
+        case 'atan': { const v=evalNode(node.inner,x); if(!isFiniteNum(v)) return NaN; return Math.atan(v); }
+        case 'log': { const v=evalNode(node.inner,x); if(!isFiniteNum(v) || v<=0) return NaN; const r = Math.log(v); return Number.isFinite(r)?r:NaN; }
+        case 'pow': { const v=evalNode(node.inner,x); if(!isFiniteNum(v)) return NaN; const r = Math.pow(v, node.n); return Number.isFinite(r)?r:NaN; }
+        case 'aPow': { const v=evalNode(node.inner,x); if(!isFiniteNum(v)) return NaN; const r = Math.pow(node.a, v); return Number.isFinite(r)?r:NaN; }
+        default: return NaN;
+      }
+    }catch(e){ return NaN; }
+  }
+  function nodeToString(node){
+    switch(node.type){
+      case 'x': return 'x';
+      case 'sin': return `sin(${nodeToString(node.inner)})`;
+      case 'cos': return `cos(${nodeToString(node.inner)})`;
+      case 'atan': return `arctan(${nodeToString(node.inner)})`;
+      case 'log': return `log(${nodeToString(node.inner)})`;
+      case 'pow': return `(${nodeToString(node.inner)})^${node.n}`;
+      case 'aPow': return `(${formatNum(node.a)})^(${nodeToString(node.inner)})`;
+      default: return '?';
+    }
+  }
+  function formatNum(v){
+    if(Math.abs(v) >= 1000 || Math.abs(v) < 0.001){ return v.toExponential(2); }
+    return (Math.abs(v - Math.round(v)) < 1e-9) ? String(Math.round(v)) : v.toFixed(3).replace(/0+$/,'').replace(/\.$/,'');
+  }
+  function checkOn01(node, predicate){
+    for(const x of SCORE_X){
+      const v = evalNode(node,x);
+      if(!isFiniteNum(v) || !predicate(v)) return false;
+    }
+    return true;
+  }
+
+  // 随机生成可在(0,1)上有效的复合单项 U(x)
+  function randomUnaryChain(){
+    const wrappers = ['sin','cos','atan','pow','log','aPow'];
+    let node = makeX();
+    const steps = rndInt(1,3);
+    for(let k=0;k<steps;k++){
+      let applied = false;
+      for(let attempt=0; attempt<8 && !applied; attempt++){
+        const w = choice(wrappers);
+        if(w==='log'){
+          if(checkOn01(node, v=>v>0)){ node = makeUnary('log', node); applied = true; }
+        }else if(w==='pow'){
+          const pool = [-3,-2,-1,2,3,4,5];
+          node = makeUnary('pow', node, {n: choice(pool)});
+          applied = true;
+        }else if(w==='aPow'){
+          let a = rnd(0.4, 3.0);
+          if(Math.abs(a-1)<0.15) a += (a<1? -0.2:0.2);
+          node = makeUnary('aPow', node, {a});
+          applied = true;
+        }else{ // sin, cos, atan
+          node = makeUnary(w, node);
+          applied = true;
+        }
+      }
+    }
+    return node;
+  }
+
+  // 组装目标函数（和/积）
+  function buildTarget(){
+    for(let tries=0; tries<60; tries++){
+      const mode = Math.random()<0.55? 'sum' : 'prod';
+      const nTerms = mode==='sum' ? rndInt(2,4) : rndInt(2,3);
+      const terms = Array.from({length:nTerms}, ()=>randomUnaryChain());
+
+      if(mode==='sum'){
+        const coeffs = terms.map(()=>{ let c = rnd(-2.2, 2.2); if(Math.abs(c) < 0.25) c = (c<0? -0.25:0.25); return c; });
+        const offset = rnd(-1.2,1.2);
+        const f = x=>{
+          let y = offset;
+          for(let i=0;i<terms.length;i++){
+            const u = evalNode(terms[i], x);
+            if(!isFiniteNum(u)) return NaN;
+            y += coeffs[i] * u;
+          }
+          return Number.isFinite(y)?y:NaN;
+        };
+        if(isFunctionValidOn01(f)){
+          return { f, expr: stringifySum(offset, terms, coeffs) };
+        }
+      }else{
+        const shifts = terms.map(()=> rnd(-0.9,0.9));
+        let scale = rnd(0.4, 1.6);
+        if(Math.random()<0.35) scale = -scale;
+        const f = x=>{
+          let y = scale;
+          for(let i=0;i<terms.length;i++){
+            const u = evalNode(terms[i], x);
+            if(!isFiniteNum(u)) return NaN;
+            const v = u + shifts[i];
+            if(!isFiniteNum(v)) return NaN;
+            y *= v;
+          }
+          return Number.isFinite(y)?y:NaN;
+        };
+        if(isFunctionValidOn01(f)){
+          return { f, expr: stringifyProd(scale, terms, shifts) };
+        }
+      }
+    }
+    const t = randomUnaryChain();
+    const f = x=> evalNode(t,x);
+    return { f, expr: nodeToString(t) };
+  }
+
+  function stringifySum(offset, terms, coeffs){
+    const parts = [];
+    if(Math.abs(offset) > 1e-12) parts.push(formatNum(offset));
+    for(let i=0;i<terms.length;i++){
+      const c = coeffs[i];
+      const u = nodeToString(terms[i]);
+      parts.push(`${formatNum(c)} * (${u})`);
+    }
+    return joinWithSigns(parts);
+  }
+  function stringifyProd(scale, terms, shifts){
+    const parts = [formatNum(scale)];
+    for(let i=0;i<terms.length;i++){
+      const u = nodeToString(terms[i]);
+      const b = shifts[i];
+      parts.push(`(${u} ${b>=0?'+':'-'} ${formatNum(Math.abs(b))})`);
+    }
+    return parts.join(' * ');
+  }
+  function joinWithSigns(parts){
+    if(parts.length===0) return '0';
+    let s = parts[0];
+    for(let i=1;i<parts.length;i++){
+      let p = parts[i].trim();
+      if(p.startsWith('-')) s += ' - ' + p.slice(1).trim();
+      else s += ' + ' + p;
+    }
+    return s;
+  }
+
+  function isFunctionValidOn01(f){
+    const ys = SCORE_X.map(x=>f(x)).filter(isFiniteNum);
+    if(ys.length < 0.9 * SCORE_X.length) return false;
+    return robustAmplitude(ys) > 1e-6;
+  }
+  function robustAmplitude(arr){
+    const a = arr.slice().sort((x,y)=>x-y);
+    const q = p=> a[Math.floor(clamp(p*(a.length-1),0,a.length-1))];
+    return q(0.95)-q(0.05);
+  }
+
+  function scoreSimilarity(fTarget, fGuess){
+    const yt=[], yg=[];
+    for(const x of SCORE_X){
+      const t=fTarget(x), g=fGuess(x);
+      if(isFiniteNum(t) && isFiniteNum(g)){ yt.push(t); yg.push(g); }
+    }
+    const overlap = yt.length / SCORE_X.length;
+    if(yt.length < 0.5 * SCORE_X.length) return { similarity: 0, overlap };
+    const amp = robustAmplitude(yt);
+    const scale = amp>1e-9 ? amp : (avgAbs(yt)+1);
+    let mse=0;
+    for(let i=0;i<yt.length;i++){ const d=yt[i]-yg[i]; mse+=d*d; }
+    mse/=yt.length;
+    const rmse = Math.sqrt(mse);
+    const nrmse = rmse/scale;
+    return { similarity: clamp(100*(1-nrmse),0,100), overlap };
+  }
+  function avgAbs(a){ return a.reduce((s,v)=>s+Math.abs(v),0)/a.length; }
+
+  // 图表初始化（使用线性连续坐标 + XY 数据）
+  const ctx = document.getElementById('chart').getContext('2d');
+  const chart = new Chart(ctx, {
+    type:'line',
+    data:{ datasets:[{
+      label:'目标函数',
+      data: [],
+      borderColor:'#60a5fa',
+      borderWidth:2,
+      pointRadius:0,
+      spanGaps:true,
+      tension:0
+    }]},
+    options:{
+      responsive:true,
+      maintainAspectRatio:false,
+      animation:false,
+      interaction:{ intersect:false, mode:'nearest' },
+      scales:{
+        x:{ type:'linear', grid:{color:'rgba(255,255,255,0.06)'}, ticks:{color:'#9ca3af'} },
+        y:{ type:'linear', grid:{color:'rgba(255,255,255,0.06)'}, ticks:{color:'#9ca3af'} }
+      },
+      plugins:{ legend:{ display:false }, tooltip:{ enabled:true } }
+    }
+  });
+
+  // 视图与交互（无插件）
+  const WORLD = { xMin: PLOT_X[0], xMax: PLOT_X[PLOT_X.length-1], yMin:-10, yMax:10 };
+  let view = { xMin: WORLD.xMin, xMax: WORLD.xMax, yMin: WORLD.yMin, yMax: WORLD.yMax };
+
+  function computeWorldYFromTarget(){
+    const ds0 = chart.data.datasets[0]?.data || [];
+    const ys = ds0.map(p=>p?.y).filter(isFiniteNum);
+    if(ys.length<5){ WORLD.yMin=-5; WORLD.yMax=5; return; }
+    ys.sort((a,b)=>a-b);
+    const q = p=> ys[Math.floor(clamp(p*(ys.length-1),0,ys.length-1))];
+    let lo = q(0.02), hi = q(0.98);
+    if(!(hi>lo)){ hi=lo+1; }
+    const pad = (hi-lo)*0.15 + 1e-6;
+    WORLD.yMin = lo - pad;
+    WORLD.yMax = hi + pad;
+  }
+  function applyView(){
+    chart.options.scales.x.min = view.xMin;
+    chart.options.scales.x.max = view.xMax;
+    chart.options.scales.y.min = view.yMin;
+    chart.options.scales.y.max = view.yMax;
+    chart.update('none');
+  }
+  function resetView(){
+    computeWorldYFromTarget();
+    view = { xMin: WORLD.xMin, xMax: WORLD.xMax, yMin: WORLD.yMin, yMax: WORLD.yMax };
+    applyView();
+  }
+  function clampView(){
+    const minSpanX = (WORLD.xMax - WORLD.xMin)/500;
+    const minSpanY = (WORLD.yMax - WORLD.yMin)/500;
+    let {xMin,xMax,yMin,yMax} = view;
+    // 保证最小跨度
+    if(xMax - xMin < minSpanX){
+      const c = (xMax+xMin)/2; xMin = c - minSpanX/2; xMax = c + minSpanX/2;
+    }
+    if(yMax - yMin < minSpanY){
+      const c = (yMax+yMin)/2; yMin = c - minSpanY/2; yMax = c + minSpanY/2;
+    }
+    // 限制到世界边界（x）
+    const spanX = xMax - xMin;
+    xMin = clamp(xMin, WORLD.xMin, WORLD.xMax - spanX);
+    xMax = xMin + spanX;
+    view = { xMin, xMax, yMin, yMax };
+  }
+  function getScaleXYFromClient(clientX, clientY){
+    const rect = chart.canvas.getBoundingClientRect();
+    const px = clientX - rect.left;
+    const py = clientY - rect.top;
+    const sx = chart.scales.x, sy = chart.scales.y;
+    const x = sx.getValueForPixel(px);
+    const y = sy.getValueForPixel(py);
+    return {x, y, px, py};
+  }
+  function zoomAt(centerX, centerY, kx, ky){
+    const {xMin,xMax,yMin,yMax} = view;
+    const nxMin = centerX + (xMin - centerX) * kx;
+    const nxMax = centerX + (xMax - centerX) * kx;
+    const nyMin = centerY + (yMin - centerY) * ky;
+    const nyMax = centerY + (yMax - centerY) * ky;
+    view = { xMin:nxMin, xMax:nxMax, yMin:nyMin, yMax:nyMax };
+    clampView(); applyView();
+  }
+  function panBy(dx, dy){
+    view = { xMin:view.xMin + dx, xMax:view.xMax + dx, yMin:view.yMin + dy, yMax:view.yMax + dy };
+    clampView(); applyView();
+  }
+
+  // 鼠标滚轮缩放（同时缩放 x、y，滚轮方向决定放大/缩小）
+  chart.canvas.addEventListener('wheel', e=>{
+    e.preventDefault();
+    const {x:cx, y:cy} = getScaleXYFromClient(e.clientX, e.clientY);
+    if(!isFiniteNum(cx) || !isFiniteNum(cy)) return;
+    const k = Math.exp(-e.deltaY * 0.0015); // 平滑因子
+    zoomAt(cx, cy, k, k);
+  }, {passive:false});
+
+  // 拖动平移 + 双指捏合缩放
+  const pointers = new Map();
+  let isPan = false, lastPan = {x:0,y:0};
+  let pinch = null; // {startDist, startCenter:{x,y}, viewStart:{...}}
+
+  chart.canvas.addEventListener('pointerdown', e=>{
+    chart.canvas.setPointerCapture?.(e.pointerId);
+    pointers.set(e.pointerId, {x:e.clientX, y:e.clientY});
+    if(pointers.size===1){
+      isPan = true;
+      const p = getScaleXYFromClient(e.clientX, e.clientY);
+      lastPan = {x:p.x, y:p.y};
+    }else if(pointers.size===2){
+      isPan = false;
+      const [a,b] = Array.from(pointers.values());
+      const mid = {x:(a.x+b.x)/2, y:(a.y+b.y)/2};
+      const sc = getScaleXYFromClient(mid.x, mid.y);
+      pinch = {
+        startDist: Math.hypot(a.x-b.x, a.y-b.y),
+        startCenter: { x: sc.x, y: sc.y },
+        viewStart: {...view}
+      };
+    }
+  });
+  chart.canvas.addEventListener('pointermove', e=>{
+    if(!pointers.has(e.pointerId)) return;
+    pointers.set(e.pointerId, {x:e.clientX, y:e.clientY});
+    if(pointers.size===1 && isPan){
+      const p = getScaleXYFromClient(e.clientX, e.clientY);
+      const dx = lastPan.x - p.x; // 注意方向：视图随指针移动
+      const dy = lastPan.y - p.y;
+      panBy(dx, dy);
+      lastPan = {x:p.x, y:p.y};
+    }else if(pointers.size===2 && pinch){
+      const [a,b] = Array.from(pointers.values());
+      const d = Math.hypot(a.x-b.x, a.y-b.y);
+      if(d<5) return;
+      const mid = {x:(a.x+b.x)/2, y:(a.y+b.y)/2};
+      const sc = getScaleXYFromClient(mid.x, mid.y);
+      const k = clamp(pinch.startDist / d, 0.02, 50); // 捏合放大 => k<1；拉开缩小 => k>1
+      // 以开始时中心缩放，再按中心位移平移
+      let xMin = pinch.viewStart.xMin, xMax = pinch.viewStart.xMax;
+      let yMin = pinch.viewStart.yMin, yMax = pinch.viewStart.yMax;
+      // 缩放
+      xMin = pinch.startCenter.x + (xMin - pinch.startCenter.x) * k;
+      xMax = pinch.startCenter.x + (xMax - pinch.startCenter.x) * k;
+      yMin = pinch.startCenter.y + (yMin - pinch.startCenter.y) * k;
+      yMax = pinch.startCenter.y + (yMax - pinch.startCenter.y) * k;
+      // 平移（跟随中心点）
+      const dx = pinch.startCenter.x - sc.x;
+      const dy = pinch.startCenter.y - sc.y;
+      view = { xMin:xMin + dx, xMax:xMax + dx, yMin:yMin + dy, yMax:yMax + dy };
+      clampView(); applyView();
+    }
+  }, {passive:false});
+  function endPointer(e){
+    pointers.delete(e.pointerId);
+    if(pointers.size===0){
+      isPan = false; pinch = null;
+    }else if(pointers.size===1){
+      // 切回单指平移
+      pinch = null; isPan = true;
+      const last = Array.from(pointers.values())[0];
+      const p = getScaleXYFromClient(last.x, last.y);
+      lastPan = {x:p.x, y:p.y};
+    }
+  }
+  chart.canvas.addEventListener('pointerup', endPointer);
+  chart.canvas.addEventListener('pointercancel', endPointer);
+  chart.canvas.addEventListener('pointerout', e=>{
+    // 防止鼠标移出导致卡死
+    if(e.pointerType==='mouse') endPointer(e);
+  });
+
+  // 双击/双击触控复位
+  chart.canvas.addEventListener('dblclick', resetView);
+  let lastTap=0;
+  chart.canvas.addEventListener('touchend', ()=>{
+    const now = Date.now();
+    if(now - lastTap < 300) resetView();
+    lastTap = now;
+  });
+
+  // 全局状态
+  let target = null;
+  let tries = 0;
+  let gameOver = false;
+
+  function newGame(){
+    tries = 0; gameOver = false;
+    updateTries();
+    setStatus('相似度阈值 ≥ 90%');
+    setScore('--');
+    hideReveal();
+
+    target = buildTarget();
+    chart.data.datasets[0].data = toXY(target.f);
+    // 根据目标曲线设置视图
+    resetView();
+
+    // 清空历史猜测
+    clearGuesses();
+    enableInput(true);
+    document.getElementById('exprInput').value='';
+  }
+
+  function clearGuesses(){
+    chart.data.datasets = chart.data.datasets.slice(0,1);
+    chart.update();
+  }
+  function addGuessCurve(fGuess, idx){
+    const ds = {
+      label:'猜测'+idx,
+      data: toXY(fGuess),
+      borderColor:'#f87171',
+      borderWidth:1.8,
+      pointRadius:0,
+      spanGaps:true,
+      tension:0
+    };
+    chart.data.datasets.push(ds);
+    chart.update('none');
+  }
+
+  function updateTries(){ document.getElementById('triesBadge').innerText = `第 ${tries+1} / ${MAX_TRIES} 次`; }
+  function setStatus(msg){ document.getElementById('status').innerText = msg; }
+  function setScore(val, good=null){
+    const el = document.getElementById('score');
+    el.classList.remove('good','bad');
+    if(good===true) el.classList.add('good');
+    if(good===false) el.classList.add('bad');
+    el.innerText = `相似度：${typeof val==='number'? val.toFixed(1)+'%':val}`;
+  }
+  function showReveal(expr){
+    const el = document.getElementById('reveal');
+    el.style.display='block';
+    el.innerHTML = `目标函数：<span class="kbd">${expr}</span>`;
+  }
+  function hideReveal(){
+    const el = document.getElementById('reveal');
+    el.style.display='none';
+    el.innerHTML='';
+  }
+  function enableInput(b){
+    document.getElementById('exprInput').disabled = !b;
+    document.getElementById('submitBtn').disabled = !b;
+  }
+
+  // 用户表达式 -> 函数
+  function compileUserExpr(exprRaw){
+    let expr = (exprRaw||'').trim();
+    if(!expr) throw new Error('请输入表达式');
+    expr = expr.replace(/\barctan\b/gi, 'atan').replace(/\bln\b/gi, 'log');
+    const compiled = math.compile(expr);
+    const f = x=>{
+      try{
+        const v = compiled.evaluate({x, pi:Math.PI, e:Math.E});
+        const y = Number(v);
+        return isFiniteNum(y)?y:NaN;
+      }catch(e){ return NaN; }
+    };
+    return f;
+  }
+
+  // 提交
+  function submit(){
+    if(gameOver) return;
+    const expr = document.getElementById('exprInput').value;
+    if(!expr.trim()){ setStatus('请输入表达式后提交'); return; }
+
+    let fGuess;
+    try{ fGuess = compileUserExpr(expr); }
+    catch(e){ setStatus('表达式解析失败：' + (e.message || '请检查括号与函数名')); setScore(0, false); return; }
+
+    const {similarity, overlap} = scoreSimilarity(target.f, fGuess);
+    addGuessCurve(fGuess, tries+1);
+    tries++;
+
+    setStatus(`评分区间重叠有效点：${Math.round(overlap*100)}%`);
+    setScore(similarity, similarity>=WIN_THRESHOLD);
+
+    if(similarity >= WIN_THRESHOLD){
+      setStatus('恭喜！相似度 ≥ 90%，你赢了！');
+      gameOver = true;
+      enableInput(false);
+      showReveal(target.expr);
+      return;
+    }
+    if(tries >= MAX_TRIES){
+      setStatus('次数已用尽，未达到 90%。再接再厉！');
+      gameOver = true;
+      enableInput(false);
+      showReveal(target.expr);
+      return;
+    }
+    updateTries();
+  }
+
+  // 事件
+  document.getElementById('submitBtn').addEventListener('click', submit);
+  document.getElementById('newBtn').addEventListener('click', newGame);
+  document.getElementById('resetBtn').addEventListener('click', resetView);
+  document.getElementById('exprInput').addEventListener('keydown', e=>{ if(e.key==='Enter'){ submit(); } });
+
+  // 启动
+  newGame();
+})();
+</script>
+</body>
+</html>

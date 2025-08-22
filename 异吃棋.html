@@ -1,0 +1,1732 @@
+<!DOCTYPE html>
+<html lang="zh">
+
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>异吃棋</title>
+	<style>
+		body {
+			background-color: #121212;
+			color: #eeeeee;
+			font-family: 'Arial', sans-serif;
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+			height: fit-content;
+			/* 改为自动计算高度 */
+			min-height: 100vh;
+			margin: 0;
+			overflow-y: auto;
+			/* 添加垂直滚动条 */
+		}
+
+		#content-container {
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+			width: 100%;
+			/* 宽度占满 */
+			padding-bottom: 20px;
+			/* 底部留一些空间 */
+		}
+
+		#board {
+			border-collapse: collapse;
+			margin-top: 20px;
+		}
+
+		#message .piece-x {
+			color: #ff4500;
+			/* 亮橙色 */
+		}
+
+		#message .piece-o {
+			color: #00bfff;
+			/* 亮蓝色 */
+		}
+
+		#board td {
+			width: 30px;
+			height: 30px;
+			border: 1px solid #666666;
+			text-align: center;
+			font-size: 20px;
+			cursor: pointer;
+			transition: background-color 0.3s;
+		}
+
+		#board .label {
+			width: 30px;
+			height: 30px;
+			text-align: center;
+			font-size: 20px;
+			cursor: default;
+		}
+
+		/*千万千万不要告诉别人游戏彩蛋在哪哟~*/
+		#board td:hover {
+			background-color: #333333;
+			position: relative;
+			/* 使 ::after 伪元素相对于此元素定位 */
+		}
+
+		/* ... existing code ... */
+		#controls {
+			display: flex;
+			flex-wrap: none;
+			justify-content: center;
+			align-items: center;
+			margin-top: 20px;
+		}
+
+		#controls>* {
+			margin: 5px;
+			/* 调整控件之间的间距 */
+		}
+
+		#board td {
+			/* ... existing code ... */
+			position: relative;
+			/* 使内部的 .health 元素可以相对于此元素定位 */
+		}
+
+		/* 显示血量 */
+		#board .health {
+			position: absolute;
+			top: 2px;
+			right: 2px;
+			font-size: 10px;
+		}
+
+		#board td:hover::after {
+			content: attr(data-coord);
+			/* 显示 data-coord 属性的值 */
+			position: absolute;
+			top: -20px;
+			/* 调整坐标显示的位置 */
+			left: 50%;
+			transform: translateX(-50%);
+			background-color: rgba(0, 0, 0, 0.8);
+			color: white;
+			padding: 2px 5px;
+			border-radius: 3px;
+			font-size: 14px;
+			white-space: nowrap;
+			/* 防止坐标换行 */
+			z-index: 10;
+			/* 确保坐标显示在最上层 */
+		}
+
+		#board .piece-block {
+			color: #777777;
+			/* 设置▒的颜色 */
+		}
+
+		#board .piece-x {
+			color: #ff4500;
+			/* 亮橙色 */
+		}
+
+		#board .piece-o {
+			color: #00bfff;
+			/* 亮蓝色 */
+		}
+
+		#controlpanel-container {
+			margin-bottom: 20px;
+		}
+
+		#controlpanel {
+			margin-top: 10px;
+		}
+
+		.slider-container {
+			margin-bottom: 5px;
+		}
+
+		.slider-container label {
+			display: inline-block;
+			width: 80px;
+			text-align: right;
+		}
+
+		.slider-container input {
+			width: 150px;
+			margin: 0 10px;
+		}
+
+		.slider-container span {
+			display: inline-block;
+			width: 30px;
+			text-align: left;
+		}
+
+		.button {
+			background-color: #444444;
+			color: #eeeeee;
+			border: none;
+			padding: 10px 20px;
+			margin: 10px;
+			border-radius: 5px;
+			cursor: pointer;
+			transition: background-color 0.3s;
+		}
+
+		#game-title {
+			font-family: 'Source Han Sans SC', 'Microsoft YaHei', 'SimHei', sans-serif;
+			/* 使用更具现代感的中文字体 */
+			font-size: 36px;
+			font-weight: bold;
+			color: #d4af37;
+			/* 暗色调下醒目且和谐的暗金色 */
+			text-shadow: 0px 0px 5px rgba(0, 0, 0, 0.5);
+			/* 细微的黑色阴影，增强立体感 */
+			margin-bottom: 20px;
+			/* 调整与棋盘的间距 */
+			letter-spacing: 10px;
+			/* 增加字间距，提升艺术感 */
+			text-align: center;
+			/* 文字居中 */
+			position: relative;
+			animation: titleAnimation 3s ease-in-out infinite;
+			/* 添加动画效果 */
+		}
+
+		@keyframes titleAnimation {
+
+			/*爽抄*/
+			0% {
+				text-shadow: 0px 0px 5px rgba(0, 0, 0, 0.5);
+			}
+
+			50% {
+				text-shadow: 0px 0px 15px rgba(212, 175, 55, 0.8);
+				/* 动态阴影效果 */
+				color: #ffd700;
+			}
+
+			100% {
+				text-shadow: 0px 0px 5px rgba(0, 0, 0, 0.5);
+				color: #d4af37;
+			}
+		}
+
+		.button:hover {
+			background-color: #666666;
+		}
+
+		/* 禁用单元格的悬浮效果 */
+		.hover-disabled td:hover {
+			/*爽抄*/
+			background-color: #121212 !important;
+			/* 保持原背景色 */
+			cursor: default;
+			/* 鼠标样式不变 */
+			-webkit-user-select: none;
+			/* Safari */
+			-moz-user-select: none;
+			/* Firefox */
+			-ms-user-select: none;
+			/* IE10+ */
+			user-select: none;
+			/* Standard syntax */
+		}
+
+		.hover-disabled td:hover::after {
+			display: none;
+			/* 隐藏坐标显示 */
+			-webkit-user-select: none;
+			/* Safari */
+			-moz-user-select: none;
+			/* Firefox */
+			-ms-user-select: none;
+			/* IE10+ */
+			user-select: none;
+			/* Standard syntax */
+		}
+
+		#message {
+			margin-top: 20px;
+			font-size: 16px;
+			color: #eeeeee;
+		}
+
+		#importTextArea {
+			resize: none;
+		}
+	</style>
+</head>
+
+<body <div id="content-container">
+	<div id="game-title">异吃棋</div>
+	<table id="board"></table>
+	<div id="message"></div>
+	<div id="ai-progress-container" style="display: none;">
+		<label for="ai-progress">AI 思考中:</label>
+		<progress id="ai-progress" value="0" max="100"></progress>
+		<span id="ai-progress-percentage">0%</span>
+	</div>
+	<div id="controls">
+		<button class="button" onclick="undoMove()">悔棋</button>
+		<button class="button" onclick="exportBoard()">导出棋盘</button>
+		<button class="button" onclick="importBoard()">导入棋盘</button>
+	</div>
+	<div id="controls">
+		<input type="radio" id="lockX" name="lockMode" value="x" onclick="setLockMode()">
+		<label for="lockX">锁定X</label>
+		<input type="radio" id="lockO" name="lockMode" value="o" onclick="setLockMode()">
+		<label for="lockO">锁定O</label>
+		<input type="radio" id="noLock" name="lockMode" value="none" onclick="setLockMode()" checked>
+		<label for="noLock">不锁定</label>
+	</div>
+	<div id="controls">
+		<input type="checkbox" id="toggleHoverEffectCheckbox" onclick="toggleHoverEffect()">
+		<label for="toggleHoverEffectCheckbox">启用悬浮效果</label>
+		<input type="checkbox" id="toggleCopyCoordCheckbox" onclick="toggleCopyCoord()">
+		<label for="toggleCopyCoordCheckbox">启用复制坐标</label>
+		<input type="checkbox" id="toggleDelayCheckbox" onclick="toggleDelay()">
+		<label for="toggleDelayCheckbox">启用规则间延时</label>
+	</div>
+	<div id="controls">
+		<button class="button" onclick="showAdvancedOptions()">高级选项</button>
+		<input type="checkbox" id="togglePermutationCheckbox" onclick="togglePermutation()">
+		<label for="togglePermutationCheckbox">启用置换</label>
+		<input type="checkbox" id="toggleSuppressUpdateCheckbox" onclick="toggleSuppressUpdate()">
+		<label for="toggleSuppressUpdateCheckbox">启用抑制更新（快速放置）</label>
+	</div>
+	<div id="controls">
+		<input type="checkbox" id="toggleClickToPlaceCheckbox" onclick="toggleClickToPlace()">
+		<label for="toggleClickToPlaceCheckbox">执子</label>
+		<input type="checkbox" id="toggleAIMoveCheckbox" onclick="toggleAIMove()">
+		<label for="toggleAIMoveCheckbox">AI对抗（建议棋盘大小小于7x7）</label>
+	</div>
+	<div id="controlpanel-container">
+		<button id="toggle-controlpanel">展开/收起 AI 控制面板</button>
+		<div id="control-panel" style="display: none;">
+			<div class="slider-container">
+				<label for="dx">Dx (敌方相邻棋子权重):</label>
+				<input type="range" id="dx" min="1" max="100" value="100">
+				<span id="dx-value">100</span>
+			</div>
+			<div class="slider-container">
+				<label for="do">Do (友方相邻棋子权重):</label>
+				<input type="range" id="do" min="1" max="100" value="33">
+				<span id="do-value">33</span>
+			</div>
+			<div class="slider-container">
+				<label for="dgx">Dgx (敌方对角棋子权重):</label>
+				<input type="range" id="dgx" min="1" max="100" value="100">
+				<span id="dgx-value">100</span>
+			</div>
+			<div class="slider-container">
+				<label for="dgo">Dgo (友方对角棋子权重):</label>
+				<input type="range" id="dgo" min="1" max="100" value="60">
+				<span id="dgo-value">60</span>
+			</div>
+			<div class="slider-container">
+				<label for="ow">Ow (己方棋子健康值权重):</label>
+				<input type="range" id="ow" min="1" max="100" value="1">
+				<span id="ow-value">1</span>
+			</div>
+			<div class="slider-container">
+				<label for="oe">Oe (己方棋子位置权重):</label>
+				<input type="range" id="oe" min="1" max="100" value="27">
+				<span id="oe-value">40</span>
+			</div>
+			<div class="slider-container">
+				<label for="xw">Xw (敌方棋子健康值权重):</label>
+				<input type="range" id="xw" min="1" max="100" value="1">
+				<span id="xw-value">1</span>
+			</div>
+			<div class="slider-container">
+				<label for="xe">Xe (敌方棋子位置权重):</label>
+				<input type="range" id="xe" min="1" max="100" value="1">
+				<span id="xe-value">1</span>
+			</div>
+			<div class="slider-container">
+				<label for="thl">ThL (思考轮数):</label>
+				<input type="range" id="thl" min="1" max="6" value="5">
+				<span id="thl-value">5</span>
+			</div>
+		</div>
+	</div>
+	<div id="advancedOptionsDialog"
+		style="display: none; position: fixed; width: 95%; top: 50%; left: 50%; transform: translate(-50%, -50%); background-color: #333333; padding: 20px; border-radius: 5px; z-index: 1000;">
+		<div style="margin-bottom: 10px;">
+			<label for="boardSizeSlider">棋盘大小: </label>
+			<input type="range" id="boardSizeSlider" min="1" max="15" value="6">
+			<span id="boardSizeValue">6</span>
+		</div>
+		<div style="margin-bottom: 10px;">
+			<label for="initialHealthSlider">初始血量: </label>
+			<input type="range" id="initialHealthSlider" min="1" max="10" value="2">
+			<span id="initialHealthValue">2</span>
+		</div>
+		<div style="margin-bottom: 10px;">
+			<label for="attackPowerSlider">攻击力: </label>
+			<input type="range" id="attackPowerSlider" min="1" max="10" value="1">
+			<span id="attackPowerValue">1</span>
+		</div>
+		<div style="margin-bottom: 10px;">
+			<label for="healPowerSlider">治愈力: </label>
+			<input type="range" id="healPowerSlider" min="1" max="10" value="1">
+			<span id="healPowerValue">1</span>
+		</div>
+		<div style="margin-bottom: 10px;">
+			<label for="blockDensitySlider">石头比例: </label>
+			<input type="range" id="blockDensitySlider" min="0" max="100" value="0">
+			<span id="blockDensityValue">0</span>
+		</div>
+		<input type="checkbox" id="toggleDiagonalCheckbox">
+		<label for="toggleDiagonalCheckbox">启用斜角治愈</label>
+		<input type="checkbox" id="toggleDiagonalAttackCheckbox">
+		<label for="toggleDiagonalAttackCheckbox">启用斜角攻击</label>
+		<input type="checkbox" id="togglePrioUsCheckbox">
+		<label for="togglePrioUsCheckbox">我方优先攻击</label>
+		<button class="button" onclick="applyAdvancedOptions()">应用（将会重置棋盘）</button>
+		<button class="button" onclick="closeAdvancedOptions()">取消</button>
+	</div>
+	</div>
+	<script>
+		let BOARD_SIZE = 6;
+		const EMPTY = '-';
+		const PLAYER_X = 'x';
+		const PLAYER_O = 'o';
+		const BLOCK = '☒';
+		let xCount = 0;
+		let oCount = 0;
+		let inithealth = 2;
+		let attackpower = 1;
+		let healpower = 1;
+		let board = [];
+		let history = [];
+		let currentPlayer = PLAYER_X;
+		let boardChanged = false;
+		let blockdensity = 0;
+		let isDiagHeal = true;
+		let isDiagAttack = true;
+		let isPrioUs = false;
+		let hasQed = false;
+		let isTouching = false;
+		let isAIMove = false;
+		let lockMode = "none"; // 初始为不锁定
+		let isCopyCoordEnabled = false; // 初始状态为禁用复制坐标
+		let isDelayEnabled = false; // 初始状态为禁用延时
+		let isPermutationEnabled = false; // 初始状态为禁用置换
+
+		let touchStartPosition = null; // 记录触摸开始的位置
+		let lastProcessedCell = null; // 记录上次处理的单元格
+		let touchTimeout = null;
+		let isClickToPlaceEnabled = true; // 初始状态为启用点击落子
+		let isSuppressUpdateEnabled = false; // 初始状态为禁用抑制更新
+
+
+		document.getElementById('toggle-controlpanel').addEventListener('click', () => {
+			let controlPanel = document.getElementById('control-panel');
+			if (controlPanel.style.display === 'none') {
+				controlPanel.style.display = 'block';
+			} else {
+				controlPanel.style.display = 'none';
+			}
+		});
+		function toggleClickToPlace() {
+			isClickToPlaceEnabled = document.getElementById("toggleClickToPlaceCheckbox").checked;
+		}
+
+		function toggleAIMove() {
+			isAIMove = document.getElementById("toggleAIMoveCheckbox").checked;
+			if (isAIMove) {
+				currentPlayer = PLAYER_X;
+				message.innerHTML = `你将成为 <span class="piece-x">x</span> 方，对抗蒟蒻 AI`;
+			}
+		}
+
+		document.addEventListener('touchstart', (event) => {
+			if (isSuppressUpdateEnabled && isClickToPlaceEnabled) {
+
+				//.log("TouchStart");
+				const touch = event.touches[0];
+				const target = document.elementFromPoint(touch.clientX, touch.clientY);
+				if (target && target.tagName === 'TD') {
+					isTouching = true;
+					const row = target.parentNode.rowIndex - 1;
+					const col = target.cellIndex - 1;
+					if (row >= 0 && row < BOARD_SIZE && col >= 0 && col < BOARD_SIZE) {
+						history.push(JSON.parse(JSON.stringify(board)));
+						touchStartPosition = {
+							row,
+							col
+						};
+						lastProcessedCell = {
+							row,
+							col
+						}; // 初始化上次处理的单元格
+						handleMultiClick(row, col);
+						touchTimeout = setTimeout(() => {
+
+							if (isSuppressUpdateEnabled) {
+								endTurn();
+								isTouching = false;
+							}
+							touchStartPosition = null; // 清除触摸开始的位置
+							lastProcessedCell = null; // 清除上次处理的单元格
+						}, 200);
+					}
+				}
+			}
+		});
+
+		document.addEventListener('touchmove', (event) => {
+			if (isSuppressUpdateEnabled && isTouching) {
+				event.preventDefault(); // 阻止页面滚动
+				const touch = event.touches[0];
+				const target = document.elementFromPoint(touch.clientX, touch.clientY);
+				if (target && target.tagName === 'TD') {
+					const row = target.parentNode.rowIndex - 1;
+					const col = target.cellIndex - 1;
+					if (row >= 0 && row < BOARD_SIZE && col >= 0 && col < BOARD_SIZE) {
+						// 只有当触摸的单元格与上次处理的单元格不同时才处理
+						if (!lastProcessedCell || lastProcessedCell.row !== row || lastProcessedCell.col !== col) {
+							clearTimeout(touchTimeout);
+							handleMultiClick(row, col);
+							lastProcessedCell = {
+								row,
+								col
+							}; // 更新上次处理的单元格
+						}
+					}
+				}
+			}
+		}, {
+			passive: false
+		}); // 添加 passive: false 以允许 preventDefault
+
+		document.addEventListener('touchend', () => {
+			if (isSuppressUpdateEnabled && isTouching) {
+				endTurn();
+				isTouching = false;
+			}
+			touchStartPosition = null; // 清除触摸开始的位置
+			lastProcessedCell = null; // 清除上次处理的单元格
+		});
+
+		function togglePermutation() {
+			isPermutationEnabled = document.getElementById("togglePermutationCheckbox").checked;
+			document.getElementById("toggleClickToPlaceCheckbox").disabled = isPermutationEnabled;
+			document.getElementById("toggleClickToPlaceCheckbox").checked = true;
+			isClickToPlaceEnabled = true;
+		}
+
+		function showAdvancedOptions() {
+			document.getElementById("advancedOptionsDialog").style.display = "block";
+		}
+
+
+		function closeAdvancedOptions() {
+			document.getElementById("advancedOptionsDialog").style.display = "none";
+		}
+
+
+		function applyAdvancedOptions() {
+			// 获取滑动条的值
+			const newBoardSize = parseInt(document.getElementById("boardSizeSlider").value);
+			inithealth = parseInt(document.getElementById("initialHealthSlider").value);
+			attackpower = parseInt(document.getElementById("attackPowerSlider").value);
+			healpower = parseInt(document.getElementById("healPowerSlider").value);
+			blockdensity = parseInt(document.getElementById("blockDensitySlider").value);
+			isDiagAttack = document.getElementById("toggleDiagonalAttackCheckbox").checked;
+			isDiagHeal = document.getElementById("toggleDiagonalCheckbox").checked;
+			isPrioUs = document.getElementById("togglePrioUsCheckbox").checked;
+			// 更新棋盘大小
+			BOARD_SIZE = newBoardSize;
+			// 重新初始化并渲染棋盘
+			let message = document.getElementById("message");
+			initializeBoard();
+			if (isAIMove) {
+				currentPlayer = PLAYER_X
+			}
+			message.innerHTML = `轮到玩家 <span class="piece-${currentPlayer}">${currentPlayer}</span> 落子`;
+			let totalCells = BOARD_SIZE * BOARD_SIZE;
+			let numBlocks = Math.floor(totalCells * blockdensity / 100);
+
+			// 创建所有单元格坐标的数组
+			let allCells = [];
+			for (let i = 0; i < BOARD_SIZE; i++) {
+				for (let j = 0; j < BOARD_SIZE; j++) {
+					allCells.push({
+						row: i,
+						col: j
+					});
+				}
+			}
+
+			// 打乱单元格坐标数组
+			allCells.sort(() => Math.random() - 0.5);
+
+			// 放置障碍物
+			for (let i = 0; i < numBlocks; i++) {
+				if (i < allCells.length) {
+					let cell = allCells[i];
+					board[cell.row][cell.col].type = BLOCK;
+				}
+			}
+			if (BOARD_SIZE === 7 && inithealth === 4) {
+				message.innerHTML += " I mean you're lucky 作者：Quaphwss";
+			}
+			renderBoard();
+			// 关闭弹窗
+			closeAdvancedOptions();
+		}
+
+		document.getElementById("boardSizeSlider").addEventListener("input", function () {
+			document.getElementById("boardSizeValue").textContent = this.value;
+		});
+
+		document.getElementById("initialHealthSlider").addEventListener("input", function () {
+			document.getElementById("initialHealthValue").textContent = this.value;
+		});
+
+		document.getElementById("attackPowerSlider").addEventListener("input", function () {
+			document.getElementById("attackPowerValue").textContent = this.value;
+		});
+		document.getElementById("healPowerSlider").addEventListener("input", function () {
+			document.getElementById("healPowerValue").textContent = this.value;
+		});
+		document.getElementById("blockDensitySlider").addEventListener("input", function () {
+			document.getElementById("blockDensityValue").textContent = this.value;
+		});
+		// 切换复制坐标功能
+		function toggleCopyCoord() {
+			isCopyCoordEnabled = document.getElementById("toggleCopyCoordCheckbox").checked;
+		}
+		// 切换延时
+		function toggleDelay() {
+			isDelayEnabled = document.getElementById("toggleDelayCheckbox").checked;
+		}
+		// 设置锁定模式
+		function setLockMode() {
+			lockMode = document.querySelector('input[name="lockMode"]:checked').value;
+			if (lockMode === "x") {
+				currentPlayer = PLAYER_X;
+			} else if (lockMode === "o") {
+				currentPlayer = PLAYER_O;
+			}
+			let message = document.getElementById("message");
+			message.innerHTML = `已${lockMode === "none"
+					? "取消锁定"
+					: lockMode === "x"
+						? "锁定X"
+						: "锁定O"
+				}，轮到玩家 <span class="piece-${currentPlayer}">${currentPlayer}</span> 落子`;
+		}
+		// 初始化棋盘
+		function initializeBoard() {
+			board = [];
+			for (let i = 0; i < BOARD_SIZE; i++) {
+				let row = [];
+				for (let j = 0; j < BOARD_SIZE; j++) {
+					row.push({
+						type: EMPTY,
+						health: 0
+					});
+				}
+				board.push(row);
+			}
+			history = [];
+		}
+		// 显示棋盘数据的文本框
+		function showImportDialog() {
+			let importDialog = document.createElement("div");
+			importDialog.id = "importDialog";
+			importDialog.style.position = "fixed";
+			importDialog.style.top = "50%";
+			importDialog.style.left = "50%";
+			importDialog.style.transform = "translate(-50%, -50%)";
+			importDialog.style.backgroundColor = "#333333";
+			importDialog.style.padding = "20px";
+			importDialog.style.borderRadius = "5px";
+			importDialog.style.zIndex = "1000";
+			importDialog.style.display = "flex";
+			importDialog.style.flexDirection = "column";
+			importDialog.style.alignItems = "center";
+			importDialog.style.gap = "10px";
+
+			let importTextArea = document.createElement("textarea");
+			importTextArea.id = "importTextArea";
+			importTextArea.rows = "10";
+			importTextArea.cols = "50";
+			importTextArea.style.backgroundColor = "#121212";
+			importTextArea.style.color = "#eeeeee";
+			importTextArea.style.border = "1px solid #666666";
+			importTextArea.style.fontFamily = "'Arial', sans-serif";
+			importTextArea.style.padding = "10px";
+
+			let importButton = document.createElement("button");
+			importButton.className = "button";
+			importButton.textContent = "导入";
+			importButton.onclick = () => {
+				const content = importTextArea.value;
+				const [settings, boardContent] = content.split("|");
+				const [
+					boardSize,
+					initHealth,
+					attackPower,
+					healPower,
+					blockDensity,
+					diagHeal,
+					diagAttack,
+					prioUs,
+				] = settings.split(";").map((val) => parseInt(val));
+				const diagHealBool = diagHeal === 1;
+				const diagAttackBool = diagAttack === 1;
+				const prioUsBool = prioUs === 1;
+
+				// 设置高级选项
+				BOARD_SIZE = boardSize;
+				inithealth = initHealth;
+				attackpower = attackPower;
+				healpower = healPower;
+				blockdensity = blockDensity;
+				isDiagHeal = diagHealBool;
+				isDiagAttack = diagAttackBool;
+				isPrioUs = prioUsBool;
+
+				document.getElementById("boardSizeSlider").value = boardSize;
+				document.getElementById("initialHealthSlider").value = initHealth;
+				document.getElementById("attackPowerSlider").value = attackPower;
+				document.getElementById("healPowerSlider").value = healPower;
+				document.getElementById("blockDensitySlider").value = blockDensity;
+				document.getElementById("toggleDiagonalCheckbox").checked = diagHealBool;
+				document.getElementById("toggleDiagonalAttackCheckbox").checked =
+					diagAttackBool;
+				document.getElementById("togglePrioUsCheckbox").checked = prioUsBool;
+
+				document.getElementById("boardSizeValue").textContent = boardSize;
+				document.getElementById("initialHealthValue").textContent = initHealth;
+				document.getElementById("attackPowerValue").textContent = attackPower;
+				document.getElementById("healPowerValue").textContent = healPower;
+				document.getElementById("blockDensityValue").textContent = blockDensity;
+
+				const rows = boardContent.split("\n");
+				initializeBoard();
+				if (rows.length !== BOARD_SIZE) {
+					alert("导入文件格式错误，请确保棋盘大小符合当前设置。");
+					return;
+				}
+				for (let i = 0; i < BOARD_SIZE; i++) {
+					const cells = rows[i].split(";");
+					if (cells.length !== BOARD_SIZE) {
+						alert("导入文件格式错误，请确保棋盘为正方形。");
+						return;
+					}
+					for (let j = 0; j < BOARD_SIZE; j++) {
+						const [type, health] = cells[j].split(",");
+						if (![EMPTY, PLAYER_X, PLAYER_O, BLOCK].includes(type)) {
+							alert("导入文件格式错误，请确保棋子类型为 - , x，o 或 ▒。");
+							return;
+						}
+						const healthValue = parseInt(health, 10);
+						if (isNaN(healthValue) || healthValue < 0) {
+							alert("导入文件格式错误，请确保棋子生命值为非负整数。");
+							return;
+						}
+						board[i][j].type = type;
+						board[i][j].health = healthValue;
+					}
+				}
+				let message = document.getElementById("message");
+				message.innerHTML = `已沿用当前顺序，轮到玩家 <span class="piece-${currentPlayer}">${currentPlayer}</span> 落子`;
+				renderBoard();
+				determineWinner();
+				document.body.removeChild(importDialog); // 关闭对话框
+			};
+
+			let cancelButton = document.createElement("button");
+			cancelButton.className = "button";
+			cancelButton.textContent = "取消";
+			cancelButton.onclick = () => {
+				document.body.removeChild(importDialog); // 关闭对话框
+			};
+			let buttonContainer = document.createElement("div");
+			buttonContainer.style.display = "flex";
+			buttonContainer.style.gap = "10px";
+			buttonContainer.appendChild(importButton);
+			buttonContainer.appendChild(cancelButton);
+
+			importDialog.appendChild(importTextArea);
+			importDialog.appendChild(buttonContainer);
+			document.body.appendChild(importDialog);
+		}
+
+		function importBoard() {
+			showImportDialog();
+		}
+
+		function exportBoard() {
+			let settings = `${BOARD_SIZE};${inithealth};${attackpower};${healpower};${blockdensity};${isDiagHeal ? 1 : 0
+				};${isDiagAttack ? 1 : 0};${isPrioUs ? 1 : 0}`;
+			let boardData = "";
+			for (let i = 0; i < BOARD_SIZE; i++) {
+				let rowData = "";
+				for (let j = 0; j < BOARD_SIZE; j++) {
+					rowData += board[i][j].type + "," + board[i][j].health;
+					if (j < BOARD_SIZE - 1) {
+						rowData += ";";
+					}
+				}
+				boardData += rowData;
+				if (i < BOARD_SIZE - 1) {
+					boardData += "\n";
+				}
+			}
+
+			let exportData = settings + "|" + boardData;
+			// 检查浏览器是否支持 Clipboard API
+			if (navigator.clipboard && navigator.clipboard.writeText) {
+				navigator.clipboard
+					.writeText(exportData)
+					.then(() => {
+						let message = document.getElementById("message");
+						message.textContent = "棋盘数据已复制到剪贴板!";
+					})
+					.catch((err) => {
+						console.error("复制失败:", err);
+						fallbackCopyTextToClipboard(exportData);
+					});
+			} else {
+				fallbackCopyTextToClipboard(exportData);
+			}
+		}
+
+		// 备选
+		function fallbackCopyTextToClipboard(text) {
+			let textArea = document.createElement("textarea");
+			textArea.value = text;
+
+			// 避免滚动到页面底部
+			textArea.style.top = "0";
+			textArea.style.left = "0";
+			textArea.style.position = "fixed";
+
+			document.body.appendChild(textArea);
+			textArea.focus();
+			textArea.select();
+
+			try {
+				let successful = document.execCommand('copy');
+				let msg = successful ? '成功!' : '失败!';
+				let message = document.getElementById('message');
+				message.textContent = '复制' + msg
+			} catch (err) {
+				console.error('复制失败:', err);
+				alert('复制失败，请手动复制');
+			}
+
+			document.body.removeChild(textArea);
+		}
+		// 渲染棋盘到 HTML 表格
+		async function renderBoard() {
+			let table = document.getElementById("board");
+			table.innerHTML = "";
+
+			if (isHoverEffectEnabled) {
+				table.classList.remove("hover-disabled");
+			} else {
+				table.classList.add("hover-disabled");
+			}
+			// 添加列标签
+			let headerRow = table.insertRow();
+			headerRow.insertCell().outerHTML = "<td class='label'></td>"; // 空单元格
+			for (let i = 1; i <= BOARD_SIZE; i++) {
+				headerRow.insertCell().outerHTML = "<td class='label'>" + i + "</td>";
+			}
+			for (let i = 0; i < BOARD_SIZE; i++) {
+				let row = table.insertRow();
+				// 添加行标签
+				row.insertCell().outerHTML = "<td class='label'>" + String.fromCharCode(65 + i) + "</td>";
+				for (let j = 0; j < BOARD_SIZE; j++) {
+					let cell = row.insertCell();
+					cell.textContent = board[i][j].type;
+					cell.className =
+						board[i][j].type !== EMPTY ? `piece-${board[i][j].type}` : "";
+					let healthSpan = document.createElement("span");
+					healthSpan.className = "health";
+					healthSpan.textContent = board[i][j].health;
+					cell.appendChild(healthSpan);
+					cell.onclick = () => handleClick(i, j);
+
+					const coord = String.fromCharCode(65 + i) + (j + 1);
+					cell.setAttribute("data-coord", coord);
+
+					cell.onmouseover = () => {
+						cell.style.backgroundColor = "#333333";
+						if (isMouseDown && isSuppressUpdateEnabled) {
+							if (!lastProcessedCell || lastProcessedCell.i !== i || lastProcessedCell.j !== j) {
+								//console.log("mouseover");
+								handleMultiClick(i, j);
+								lastProcessedCell = {
+									i,
+									j
+								}; // 更新上次处理的单元格
+							}
+						}
+					};
+					cell.onmousedown = () => {
+						cell.style.backgroundColor = "#333333";
+						if (isSuppressUpdateEnabled) {
+							if (!lastProcessedCell || lastProcessedCell.i !== i || lastProcessedCell.j !== j) {
+								history.push(JSON.parse(JSON.stringify(board)));
+								handleMultiClick(i, j);
+								lastProcessedCell = {
+									i,
+									j
+								}; // 更新上次处理的单元格
+							}
+						}
+					};
+					cell.onmouseout = () => {
+						cell.style.backgroundColor = "";
+					};
+				}
+			}
+		}
+		let isMouseDown = false;
+		document.addEventListener("mousedown", (event) => {
+			if (isSuppressUpdateEnabled && isClickToPlaceEnabled) {
+				const target = document.elementFromPoint(event.clientX, event.clientY);
+				if (target && target.tagName === 'TD') {
+					isMouseDown = true;
+				}
+			}
+
+		});
+		document.addEventListener("mouseup", () => {
+			if (isSuppressUpdateEnabled && !isTouching && isMouseDown) {
+				endTurn();
+				isMouseDown = false;
+			}
+			lastProcessedCell = null;
+		});
+
+		function handleMultiClick(row, col) {
+			if (isPermutationEnabled) {
+				if (board[row][col].type === EMPTY) {
+					board[row][col].type = BLOCK;
+					board[row][col].health = 0;
+				} else if (board[row][col].type === PLAYER_X) {
+					board[row][col].type = PLAYER_O;
+					board[row][col].health = inithealth;
+				} else if (board[row][col].type === PLAYER_O) {
+					board[row][col].type = PLAYER_X;
+					board[row][col].health = inithealth;
+				} else {
+					board[row][col].type = EMPTY;
+					board[row][col].health = 0;
+				}
+			} else {
+				if (board[row][col].type === EMPTY && isClickToPlaceEnabled) {
+					board[row][col].type = currentPlayer;
+					board[row][col].health = inithealth;
+				}
+			}
+			let targetCell = document.querySelector(
+				`#board tr:nth-child(${row + 2}) td:nth-child(${col + 2})`,
+			);
+			if (targetCell) {
+				targetCell.textContent = board[row][col].type;
+				targetCell.className =
+					board[row][col].type !== EMPTY ?
+						`piece-${board[row][col].type}` :
+						"";
+			}
+
+		}
+		async function endTurn() {
+			if (isClickToPlaceEnabled) {
+
+				do {
+					boardChanged = false;
+					await refreshBoard();
+				} while (boardChanged);
+
+				renderBoard();
+
+				determineWinner();
+
+				if (isBoardFull()) return;
+				if (lockMode === "none" && !isPermutationEnabled) {
+					currentPlayer = currentPlayer === PLAYER_X ? PLAYER_O : PLAYER_X;
+				}
+				let message = document.getElementById("message");
+				message.innerHTML = `轮到玩家 <span class="piece-${currentPlayer}">${currentPlayer}</span> 落子`;
+			} else {
+				renderBoard();
+			}
+		}
+		// 检查棋盘是否已满
+		function isBoardFull() {
+			for (let i = 0; i < BOARD_SIZE; i++) {
+				for (let j = 0; j < BOARD_SIZE; j++) {
+					if (board[i][j].type === EMPTY) {
+						return false;
+					}
+				}
+			}
+			return true;
+		}
+
+		// 统计棋子数量
+		function countPieces() {
+			xCount = 0;
+			oCount = 0;
+			for (let i = 0; i < BOARD_SIZE; i++) {
+				for (let j = 0; j < BOARD_SIZE; j++) {
+					if (board[i][j].type === PLAYER_X) {
+						xCount++;
+					} else if (board[i][j].type === PLAYER_O) {
+						oCount++;
+					}
+				}
+			}
+			return {
+				xCount,
+				oCount
+			};
+		}
+
+		// 胜负判定
+		function determineWinner() {
+			if (isBoardFull()) {
+				let {
+					xCount,
+					oCount
+				} = countPieces();
+				let message = document.getElementById('message');
+				message.textContent = '棋盘已满! ';
+				if (xCount > oCount) {
+					message.innerHTML += `玩家 <span class="piece-x">X</span> 胜利`;
+				} else if (oCount > xCount) {
+					message.innerHTML += `玩家 <span class="piece-o">O</span> 胜利`;
+				} else {
+					message.textContent += '平局!';
+				}
+				message.innerHTML += ` <span class="piece-x">${xCount}</span>：<span class="piece-o">${oCount}</span>`;
+			}
+		}
+
+		// 治愈规则
+		function healRule(row, col) {
+			let currentPlayer = board[row][col].type;
+			if (currentPlayer === EMPTY) return;
+			if (board[row][col].type === BLOCK) return;
+			board[row][col].health = inithealth;
+			let n = 0;
+			// 正上方，正左方，正右方，正下方
+			let directNeighbors = [
+				[-1, 0],
+				[0, -1],
+				[0, 1],
+				[1, 0]
+			];
+			for (let i = 0; i < 4; i++) {
+				let r = row + directNeighbors[i][0];
+				let c = col + directNeighbors[i][1];
+				if (r >= 0 && r < BOARD_SIZE && c >= 0 && c < BOARD_SIZE && board[r][c].type === currentPlayer) {
+					n++;
+				}
+			}
+
+			// 左上方，左下方，右上方，右下方
+			let diagonalNeighbors = [
+				[-1, -1],
+				[-1, 1],
+				[1, -1],
+				[1, 1]
+			];
+			let m = 0;
+			for (let i = 0; i < 4; i++) {
+				let r = row + diagonalNeighbors[i][0];
+				let c = col + diagonalNeighbors[i][1];
+
+				if (r >= 0 && r < BOARD_SIZE && c >= 0 && c < BOARD_SIZE && board[r][c].type === currentPlayer) {
+					m++;
+				}
+			}
+
+			if (n >= 2) {
+				if (m > 0 && isDiagHeal) {
+					board[row][col].health = inithealth + (n + m) * healpower - 1;
+				} else {
+					board[row][col].health = inithealth + n * healpower - 1;
+				}
+			}
+		}
+
+		// 扣血规则
+		function damageRule(row, col, currentPlayer) {
+			if (board[row][col].type === EMPTY) return;
+			if (board[row][col].type === BLOCK) return;
+			let opponent = (currentPlayer === PLAYER_X) ? PLAYER_O : PLAYER_X;
+			let n = 0;
+
+			// 正上方，正左方，正右方，正下方
+			let directNeighbors = [
+				[-1, 0],
+				[0, -1],
+				[0, 1],
+				[1, 0]
+			];
+			for (let i = 0; i < 4; i++) {
+				let r = row + directNeighbors[i][0];
+				let c = col + directNeighbors[i][1];
+				if (r >= 0 && r < BOARD_SIZE && c >= 0 && c < BOARD_SIZE && board[r][c].type === opponent) {
+					n++;
+				}
+			}
+
+			// 左上方，左下方，右上方，右下方
+			let diagonalNeighbors = [
+				[-1, -1],
+				[-1, 1],
+				[1, -1],
+				[1, 1]
+			];
+			let m = 0;
+			for (let i = 0; i < 4; i++) {
+				let r = row + diagonalNeighbors[i][0];
+				let c = col + diagonalNeighbors[i][1];
+
+				if (r >= 0 && r < BOARD_SIZE && c >= 0 && c < BOARD_SIZE && board[r][c].type === opponent) {
+					m++;
+				}
+			}
+
+			if (n >= 2) {
+				if (m > 0 && isDiagAttack) {
+					board[row][col].health -= (n + m) * attackpower;
+				} else {
+					board[row][col].health -= n * attackpower;
+				}
+			}
+		}
+
+		// 死亡规则
+		function deathRule(row, col) {
+			if (board[row][col].type === EMPTY) return;
+			if (board[row][col].type === BLOCK) return;
+			if (board[row][col].health <= 0) {
+				board[row][col].type = (board[row][col].type === PLAYER_X) ? PLAYER_O : PLAYER_X;
+				board[row][col].health = 2;
+				boardChanged = true;
+			}
+		}
+
+		function blockRule() {
+			for (let i = 0; i < BOARD_SIZE; i++) {
+				for (let j = 0; j < BOARD_SIZE; j++) {
+					// 正上方，正左方，正右方，正下方
+					let directNeighbors = [
+						[-1, 0],
+						[0, -1],
+						[0, 1],
+						[1, 0]
+					];
+					xCount = 0;
+					oCount = 0;
+					for (let k = 0; k < 4; k++) {
+						let r = i + directNeighbors[k][0];
+						let c = j + directNeighbors[k][1];
+						if (r >= 0 && r < BOARD_SIZE && c >= 0 && c < BOARD_SIZE) {
+							if (board[r][c].type === PLAYER_X) {
+								xCount++;
+							} else if (board[r][c].type === PLAYER_O) {
+								oCount++;
+							}
+						}
+					}
+					if (xCount >= 2 && oCount >= 2) {
+						board[i][j].type = BLOCK;
+						board[i][j].health = 0;
+					}
+				}
+			}
+		}
+
+		function checkEasterEggPattern() {
+			const qPattern = [
+				[0, 1, 1, 1, 0],
+				[1, 0, 0, 0, 1],
+				[1, 0, 0, 0, 1],
+				[1, 0, 0, 1, 1],
+				[0, 1, 1, 1, 0],
+				[0, 0, 0, 1, 0]
+			];
+
+			// 检查棋盘上是否存在 Q 图案
+			for (let i = 0; i <= BOARD_SIZE - qPattern.length; i++) {
+				for (let j = 0; j <= BOARD_SIZE - qPattern[0].length; j++) {
+					let match = true;
+					for (let r = 0; r < qPattern.length; r++) {
+						for (let c = 0; c < qPattern[0].length; c++) {
+							if (qPattern[r][c] === 1 && board[i + r][j + c].type === EMPTY) {
+								match = false;
+								break;
+							}
+						}
+						if (!match) break;
+					}
+					if (match) {
+						document.getElementById('message').innerHTML += " That's Q！？ 作者：Quaphwss";
+						hasQed = true;
+						return;
+					}
+				}
+			}
+		}
+
+		async function refreshBoard() {
+			if (!isDiagHeal || !isDiagAttack || attackpower !== healpower) {
+				blockRule();
+			}
+			if (isPrioUs) {
+				currentPlayer = (currentPlayer === PLAYER_X) ? PLAYER_O : PLAYER_X;
+			}
+			// 对双方运行 healRule
+			for (let i = 0; i < BOARD_SIZE; i++) {
+				for (let j = 0; j < BOARD_SIZE; j++) {
+					if (board[i][j].type !== EMPTY) {
+						healRule(i, j);
+					}
+				}
+			}
+
+			// 对我方运行 damageRule 和 deathRule
+			for (let i = 0; i < BOARD_SIZE; i++) {
+				for (let j = 0; j < BOARD_SIZE; j++) {
+					if (board[i][j].type === currentPlayer) {
+						damageRule(i, j, currentPlayer);
+					}
+				}
+			}
+			if (isDelayEnabled) {
+				renderBoard();
+				await new Promise(resolve => setTimeout(resolve, 100)); // 延时200毫秒
+			}
+			for (let i = 0; i < BOARD_SIZE; i++) {
+				for (let j = 0; j < BOARD_SIZE; j++) {
+					if (board[i][j].type === currentPlayer) {
+						deathRule(i, j);
+					}
+				}
+			}
+
+			// 对双方运行 healRule
+			for (let i = 0; i < BOARD_SIZE; i++) {
+				for (let j = 0; j < BOARD_SIZE; j++) {
+					if (board[i][j].type !== EMPTY) {
+						healRule(i, j);
+					}
+				}
+			}
+
+			// 对敌方运行 damageRule 和 deathRule
+			let opponent = (currentPlayer === PLAYER_X) ? PLAYER_O : PLAYER_X;
+			for (let i = 0; i < BOARD_SIZE; i++) {
+				for (let j = 0; j < BOARD_SIZE; j++) {
+					if (board[i][j].type === opponent) {
+						damageRule(i, j, opponent);
+					}
+				}
+			}
+			if (isDelayEnabled) {
+				renderBoard();
+				await new Promise(resolve => setTimeout(resolve, 100)); // 延时200毫秒
+			}
+			for (let i = 0; i < BOARD_SIZE; i++) {
+				for (let j = 0; j < BOARD_SIZE; j++) {
+					if (board[i][j].type === opponent) {
+						deathRule(i, j);
+					}
+				}
+			}
+			if (isPrioUs) {
+				currentPlayer = (currentPlayer === PLAYER_X) ? PLAYER_O : PLAYER_X;
+			}
+			if (!hasQed) {
+				checkEasterEggPattern();
+			}
+		}
+
+
+
+		function toggleSuppressUpdate() {
+			isSuppressUpdateEnabled = document.getElementById("toggleSuppressUpdateCheckbox").checked;
+		}
+		let clickCount = 0;
+		let lastClickedCell = null;
+
+		const controlPanel = document.getElementById('control-panel');
+		const rangeInputs = controlPanel.querySelectorAll('input[type="range"]');
+
+		rangeInputs.forEach(input => {
+			input.addEventListener('input', function () {
+				// 更新参数值
+				window[this.id.toUpperCase()] = parseInt(this.value);
+
+				// 更新显示
+				document.getElementById(`${this.id}-value`).textContent = this.value;
+			});
+		});
+
+		// 处理点击事件
+		const aiProgressContainer = document.getElementById('ai-progress-container');
+		const aiProgressBar = document.getElementById('ai-progress');
+		const aiProgressPercentage = document.getElementById('ai-progress-percentage');
+		let Dx = parseInt(document.getElementById('dx').value);
+		let Do = parseInt(document.getElementById('do').value);
+		let Dgx = parseInt(document.getElementById('dgx').value);
+		let Dgo = parseInt(document.getElementById('dgo').value);
+		let Ow = parseInt(document.getElementById('ow').value);
+		let Oe = parseInt(document.getElementById('oe').value);
+		let Xw = parseInt(document.getElementById('xw').value);
+		let Xe = parseInt(document.getElementById('xe').value);
+		let ThL = parseInt(document.getElementById('thl').value);
+
+
+		async function aiMove() {
+			Dx = parseInt(document.getElementById('dx').value);
+			Do = parseInt(document.getElementById('do').value);
+			Dgx = parseInt(document.getElementById('dgx').value);
+			Dgo = parseInt(document.getElementById('dgo').value);
+			Ow = parseInt(document.getElementById('ow').value);
+			Oe = parseInt(document.getElementById('oe').value);
+			Xw = parseInt(document.getElementById('xw').value);
+			Xe = parseInt(document.getElementById('xe').value);
+			ThL = parseInt(document.getElementById('thl').value);
+			let bestScore = -Infinity;
+			let move = null;
+			let markBoard = [];
+			for (let i = 0; i < BOARD_SIZE; i++) {
+				markBoard[i] = [];
+				for (let j = 0; j < BOARD_SIZE; j++) {
+					markBoard[i][j] = {
+						mark: false
+					};
+				}
+			}
+			// 获取所有玩家的棋子位置
+			let playerPieces = [];
+			for (let i = 0; i < BOARD_SIZE; i++) {
+				for (let j = 0; j < BOARD_SIZE; j++) {
+					if (board[i][j].type !== EMPTY && board[i][j].type !== BLOCK) {
+						playerPieces.push({
+							row: i,
+							col: j
+						});
+					}
+				}
+			}
+
+			let totalPossibleMoves = 0;
+			let evaluatedMoves = 0;
+
+
+			aiProgressContainer.style.display = 'block';
+
+			// 计算总的可能步数
+			for (let piece of playerPieces) {
+				for (let i = piece.row - 2; i <= piece.row + 2; i++) {
+					for (let j = piece.col - 2; j <= piece.col + 2; j++) {
+						if (i >= 0 && i < BOARD_SIZE && j >= 0 && j < BOARD_SIZE && board[i][j].type === EMPTY && !markBoard[i][j].mark) {
+							markBoard[i][j].mark = true;
+							totalPossibleMoves++;
+						}
+					}
+				}
+			}
+			for (let i = 0; i < BOARD_SIZE; i++) {
+				for (let j = 0; j < BOARD_SIZE; j++) {
+					markBoard[i][j] = {
+						mark: false
+					};
+				}
+			}
+			// 遍历玩家棋子周围的空位
+			for (let piece of playerPieces) {
+				for (let i = piece.row - 2; i <= piece.row + 2; i++) {
+					for (let j = piece.col - 2; j <= piece.col + 2; j++) {
+						if (i >= 0 && i < BOARD_SIZE && j >= 0 && j < BOARD_SIZE && board[i][j].type === EMPTY && !markBoard[i][j].mark) {
+							markBoard[i][j].mark = true;
+							currentPlayer = PLAYER_O
+							let tempboard = deepCopyBoard(board);
+							board[i][j].type = PLAYER_O;
+							board[i][j].health = inithealth;
+							boardChanged = false;
+							do {
+								boardChanged = false;
+								refreshBoard();
+							} while (boardChanged);
+							// 评估当前棋盘状态
+							let score = minimaxAlphaBeta(board, 0, false, -Infinity, Infinity, getCandidateMoves(board));
+
+							// 撤销 AI 落子
+							board = tempboard;
+							//console.log(String.fromCharCode(65 + i) + (j + 1));
+							//console.log(score);
+
+							// 更新进度条
+							evaluatedMoves++;
+							updateAIProgress(evaluatedMoves, totalPossibleMoves);
+							await new Promise(resolve => setTimeout(resolve, 0));
+							// 更新最佳分数和最佳落子位置
+							if (score > bestScore) {
+								bestScore = score;
+								move = {
+									row: i,
+									col: j
+								};
+							}
+						}
+					}
+				}
+			}
+			aiProgressContainer.style.display = 'none';
+
+			return move;
+		}
+
+		function updateAIProgress(evaluatedMoves, totalPossibleMoves) {
+			let percentage = Math.round((evaluatedMoves / totalPossibleMoves) * 100);
+			aiProgressBar.value = percentage;
+			aiProgressPercentage.textContent = `${percentage}%`;
+		}
+
+
+		function deepCopyBoard(board) {
+			const newBoard = [];
+			for (let i = 0; i < BOARD_SIZE; i++) {
+				newBoard[i] = [];
+				for (let j = 0; j < BOARD_SIZE; j++) {
+					newBoard[i][j] = {
+						type: board[i][j].type,
+						health: board[i][j].health
+					};
+				}
+			}
+			return newBoard;
+		}
+		function getCandidateMoves(board) {
+			const moves = new Set();
+			for (let i = 0; i < BOARD_SIZE; i++) {
+				for (let j = 0; j < BOARD_SIZE; j++) {
+					if (board[i][j].type !== EMPTY && board[i][j].type !== BLOCK) {
+						// 收集周围2格范围内的空位
+						for (let di = -2; di <= 2; di++) {
+							for (let dj = -2; dj <= 2; dj++) {
+								const ni = i + di;
+								const nj = j + dj;
+								if (ni >= 0 && ni < BOARD_SIZE &&
+									nj >= 0 && nj < BOARD_SIZE &&
+									board[ni][nj].type === EMPTY) {
+									moves.add(`${ni},${nj}`);
+								}
+							}
+						}
+					}
+				}
+			}
+			// 转换为坐标数组
+			return Array.from(moves).map(str => str.split(',').map(Number));
+		}
+		function minimaxAlphaBeta(board, depth, isMaximizingPlayer, alpha, beta, candidateMoves) {
+			if (isBoardFull() || depth === ThL) {
+				return evaluateBoard(board);
+			}
+
+			if (isMaximizingPlayer) {
+				let bestScore = -Infinity;
+				for (const move of candidateMoves) {
+					const [i, j] = move;
+					if (board[i][j].type === EMPTY) {
+						const tempBoard = deepCopyBoard(board);
+
+						// 模拟落子
+						currentPlayer = PLAYER_O;
+						board[i][j].type = PLAYER_O;
+						board[i][j].health = inithealth;
+						boardChanged = false;
+						do {
+							boardChanged = false;
+							refreshBoard();
+						} while (boardChanged);
+
+						// 递归搜索
+						const score = minimaxAlphaBeta(board, depth + 1, false, alpha, beta, candidateMoves);
+						board = tempBoard; // 撤销落子
+
+						bestScore = Math.max(bestScore, score);
+						alpha = Math.max(alpha, bestScore);
+						if (beta <= alpha) break; // Alpha剪枝
+					}
+				}
+				return bestScore;
+			} else {
+				let bestScore = Infinity;
+				for (const move of candidateMoves) {
+					const [i, j] = move;
+					if (board[i][j].type === EMPTY) {
+						const tempBoard = deepCopyBoard(board);
+
+						// 模拟落子
+						currentPlayer = PLAYER_X;
+						board[i][j].type = PLAYER_X;
+						board[i][j].health = inithealth;
+						boardChanged = false;
+						do {
+							boardChanged = false;
+							refreshBoard();
+						} while (boardChanged);
+
+						// 递归搜索
+						const score = minimaxAlphaBeta(board, depth + 1, true, alpha, beta, candidateMoves);
+						board = tempBoard; // 撤销落子
+
+						bestScore = Math.min(bestScore, score);
+						beta = Math.min(beta, bestScore);
+						if (beta <= alpha) break; // Beta剪枝
+					}
+				}
+				return bestScore;
+			}
+		}
+		function evaluateBoard(board) {
+			let score = 0;
+			// 遍历棋盘计算分数
+			for (let i = 0; i < BOARD_SIZE; i++) {
+				for (let j = 0; j < BOARD_SIZE; j++) {
+					if (board[i][j].type === PLAYER_O) {
+						// 考虑棋子的健康值
+						score += Ow * board[i][j].health;
+						// 考虑棋子周围的局势
+						score += Oe * evaluatePosition(board, i, j, PLAYER_O);
+					} else if (board[i][j].type === PLAYER_X) {
+						// 考虑棋子的健康值
+						score -= Xw * board[i][j].health;
+						// 考虑棋子周围的局势
+						score -= Xe * evaluatePosition(board, i, j, PLAYER_X);
+					}
+				}
+			}
+			return score;
+		}
+
+		function evaluatePosition(board, row, col, player) {
+			let score = 0;
+			const directions = [
+				[-1, 0],
+				[1, 0],
+				[0, -1],
+				[0, 1]
+			];
+
+			for (let dir of directions) {
+				let friendlies = 0;
+				let enemies = 0;
+				let r = row + dir[0];
+				let c = col + dir[1];
+
+				if (r >= 0 && r < BOARD_SIZE && c >= 0 && c < BOARD_SIZE) {
+					if (board[r][c].type === player) {
+						friendlies += board[r][c].health;
+					} else if (board[r][c].type !== EMPTY && board[r][c].type !== BLOCK) {
+						enemies += board[r][c].health;
+					}
+				}
+				if (friendlies >= 1) {
+					score += Do * friendlies; // 周围有友方棋子，加分
+				}
+				if (enemies >= 1) {
+					score -= Dx * enemies; // 周围有敌方棋子，减分
+				}
+			}
+			const diag_directions = [
+				[-1, 1],
+				[1, -1],
+				[-1, -1],
+				[1, 1]
+			];
+			for (let dir of diag_directions) {
+				let enemies = 0;
+				let friendlies = 0;
+				let r = row + dir[0];
+				let c = col + dir[1];
+
+				if (r >= 0 && r < BOARD_SIZE && c >= 0 && c < BOARD_SIZE) {
+					if (board[r][c].type === PLAYER_X) {
+						enemies++;
+					}
+					if (board[r][c].type === PLAYER_O) {
+						friendlies++;
+					}
+				}
+				if (friendlies >= 1) {
+					score += friendlies * Dgo; // 周围有友方棋子，加分
+				}
+				if (enemies >= 1) {
+					score -= (enemies - 2) * Dgx;
+				}
+			}
+			return score;
+		}
+		async function handleClick(row, col) {
+			if (!isSuppressUpdateEnabled) {
+				if (isPermutationEnabled) {
+					history.push(JSON.parse(JSON.stringify(board)));
+					if (board[row][col].type === EMPTY) {
+						board[row][col].type = BLOCK;
+						board[row][col].health = 0;
+					} else if (board[row][col].type === PLAYER_X) {
+						board[row][col].type = PLAYER_O;
+						board[row][col].health = inithealth;
+					} else if (board[row][col].type === PLAYER_O) {
+						board[row][col].type = PLAYER_X;
+						board[row][col].health = inithealth;
+					} else {
+						board[row][col].type = EMPTY;
+						board[row][col].health = 0;
+					}
+					do {
+						boardChanged = false;
+						await refreshBoard();
+					} while (boardChanged);
+
+					renderBoard();
+					determineWinner();
+
+					return;
+				}
+				if (board[row][col].type === EMPTY && isClickToPlaceEnabled) {
+					// 在操作前保存当前状态
+					history.push(JSON.parse(JSON.stringify(board)));
+
+					board[row][col].type = currentPlayer;
+					board[row][col].health = 2;
+
+					do {
+						boardChanged = false;
+						await refreshBoard();
+					} while (boardChanged);
+
+					renderBoard();
+					determineWinner();
+
+					if (isBoardFull()) return;
+					if (lockMode === "none" && !isAIMove) {
+						currentPlayer = (currentPlayer === PLAYER_X) ? PLAYER_O : PLAYER_X;
+					}
+					let message = document.getElementById('message');
+					message.innerHTML = `轮到玩家 <span class="piece-${currentPlayer}">${currentPlayer}</span> 落子`;
+					if (lockMode === "none" && isAIMove) {
+						currentPlayer = PLAYER_O;
+						message.innerHTML = ``;
+						let tempisDelayEnabled = isDelayEnabled == true;
+						let tempishasQed = hasQed == true;
+						isDelayEnabled = false;
+						hasQed = true;
+						await new Promise(resolve => setTimeout(resolve, 100));
+						let move = await aiMove();
+						if (move) {
+							currentPlayer = PLAYER_O
+							board[move.row][move.col].type = PLAYER_O;
+							board[move.row][move.col].health = inithealth;
+							isDelayEnabled = tempisDelayEnabled == true;
+							hasQed = tempishasQed == true;
+							do {
+								boardChanged = false;
+								await refreshBoard();
+							} while (boardChanged);
+
+							renderBoard();
+							determineWinner();
+							if (isBoardFull()) return;
+							currentPlayer = PLAYER_X;
+							message.innerHTML = `轮到玩家 <span class="piece-${currentPlayer}">${currentPlayer}</span> 落子`;
+						}
+					}
+				} else {
+					if (lastClickedCell && lastClickedCell.row === row && lastClickedCell.col === col) {
+						clickCount++;
+						if (clickCount === 4) {
+							message.innerHTML = "you so boring... 作者：Quaphwss";
+							clickCount = 0; // 重置计数器
+						}
+					} else {
+						clickCount = 0; // 重置计数器
+						lastClickedCell = {
+							row,
+							col
+						};
+					}
+					if (isCopyCoordEnabled) {
+						const coord = String.fromCharCode(65 + row) + (col + 1);
+						const message = document.getElementById('message');
+
+						// 尝试复制到剪贴板
+						navigator.clipboard.writeText(coord)
+							.then(() => {
+								// 复制成功，更新提示信息
+								message.textContent = `坐标 ${coord} 已复制到剪贴板`;
+							})
+							.catch(err => {
+								console.error('复制失败:', err);
+								fallbackCopyTextToClipboard(coord);
+							});
+					}
+				}
+			}
+		}
+		// 悔棋
+		function undoMove() {
+			if (history.length > 0) {
+				board = history.pop(); // 恢复到上一步的状态
+				if (lockMode === "none" && !isAIMove) {
+					currentPlayer = (currentPlayer === PLAYER_X) ? PLAYER_O : PLAYER_X; // 切换玩家
+				}
+				if (isAIMove) {
+					currentPlayer = PLAYER_X;
+				}
+				let message = document.getElementById('message');
+				message.innerHTML = `已悔棋，轮到玩家 <span class="piece-${currentPlayer}">${currentPlayer}</span> 落子`;
+				renderBoard();
+			} else {
+				let message = document.getElementById('message');
+				message.textContent = '没有可以悔棋的步骤';
+			}
+		}
+
+		// 开始游戏
+		function startGame() {
+			initializeBoard();
+			renderBoard();
+			history = [];
+			lockMode = "none";
+			document.getElementById("noLock").checked = true;
+			document.getElementById("toggleDiagonalCheckbox").checked = true;
+			document.getElementById("toggleDiagonalAttackCheckbox").checked = true;
+			document.getElementById("toggleClickToPlaceCheckbox").checked = true;
+			let message = document.getElementById('message');
+			message.innerHTML = '轮到玩家 <span class="piece-x">x</span> 落子';
+		}
+
+		let isHoverEffectEnabled = false;
+
+		function toggleHoverEffect() {
+			isHoverEffectEnabled = document.getElementById("toggleHoverEffectCheckbox").checked;
+			renderBoard(); // 重新渲染棋盘以应用更改
+		}
+		startGame();
+	</script>
+</body>
+
+</html>
