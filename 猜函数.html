@@ -1,602 +1,1532 @@
-
 <!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"/>
-  <title>函数拟合猜猜猜</title>
+  <title>猜函数</title>
   <style>
-    :root{
-      --bg:#0f172a;
-      --card:#111827;
-      --fg:#e5e7eb;
-      --muted:#9ca3af;
-      --accent:#60a5fa;
-      --good:#22c55e;
-      --bad:#ef4444;
-    }
+    :root{ --bg:#0f172a; --card:#111827; --fg:#e5e7eb; --muted:#9ca3af; --accent:#60a5fa; --good:#22c55e; --bad:#ef4444; --border:rgba(255,255,255,0.06); --input-bg:#0b1020; }
     *{box-sizing:border-box}
-    body{ margin:0; background:var(--bg); color:var(--fg);
-      font-family: system-ui, -apple-system,"Segoe UI",Roboto,Helvetica,Arial,"Apple Color Emoji","Segoe UI Emoji"; }
-    header{ padding:16px 16px 8px; }
-    h1{ margin:0 0 6px 0; font-size:20px; font-weight:800; letter-spacing:0.3px; }
-    .sub{ color:var(--muted); font-size:13px; }
-    .card{ background:var(--card); border:1px solid rgba(255,255,255,0.06); border-radius:14px; padding:12px; margin:10px 12px; }
-    .toolbar{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin:8px 0 0; }
-    input[type="text"]{ flex:1; min-width:180px; padding:12px 12px; border-radius:10px; border:1px solid rgba(255,255,255,0.12);
-      background:#0b1020; color:var(--fg); font-size:16px; outline:none; }
-    input::placeholder{ color:#64748b }
-    button{ padding:12px 14px; border:0; border-radius:10px; color:#0b1020; font-weight:700; background:var(--accent); min-width:92px; }
-    .btn-ghost{ background:transparent; color:var(--fg); border:1px solid rgba(255,255,255,0.16) }
-    .hint{ font-size:12px; color:var(--muted); margin-top:8px; line-height:1.5; }
-    .row{ display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; margin:8px 0; }
-    .pill{ font-size:12px; color:#0b1020; background:#93c5fd; padding:3px 8px; border-radius:999px; font-weight:700 }
-    .score{ font-weight:800; font-size:18px; letter-spacing:0.3px; }
-    .score.good{ color:var(--good) }
-    .score.bad{ color:var(--bad) }
-    .status{ font-size:14px; color:var(--muted) }
-    .legend{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; font-size:12px; color:var(--muted) }
-    .dot{ width:10px; height:10px; border-radius:50% }
-    .dot.target{ background:#60a5fa }
-    .dot.guess{ background:#f87171 }
-    canvas{ width:100%; height:auto; touch-action:none } /* 手势交由画布，不滚动页面 */
-    .footer{ text-align:center; color:var(--muted); font-size:12px; padding-bottom:18px; margin-top:6px; }
-    .reveal{ margin-top:8px; font-size:13px; color:#cbd5e1; word-break:break-all; }
-    .kbd{ display:inline-block; padding:1px 6px; border-radius:6px; background:#0b1020; border:1px solid rgba(255,255,255,0.08); font-family:Menlo,Consolas,monospace; font-size:12px; color:#cbd5e1 }
+    body{ margin:0; background:var(--bg); color:var(--fg); font-family: system-ui, -apple-system,"Segoe UI",Roboto,Helvetica,Arial; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+    header{ padding:16px }
+    .card{ background:var(--card); border-radius:12px; padding:12px; margin:12px }
+    .calculator-wrapper{ position:relative; width:100%; }
+    #desmos-calculator{ width:100%; height:480px; min-height:360px; max-height:900px; border-radius:8px; border:1px solid var(--border); }
+    .status-line{ color:var(--muted); font-size:13px; margin-top:8px }
+    .status-error{ color:#f87171 }
+    .debug-box{ font-family:monospace; font-size:12px; color:#cbd5e1; margin-top:8px; white-space:pre-wrap }
+    
+    .input-toolbar{ display:flex; gap:8px; align-items:center; margin-top:12px }
+    .controls-toolbar { display:flex; gap:8px; align-items:center; margin-top:10px; flex-wrap: wrap; }
+
+    input[type="text"]{ flex:1; padding:10px 12px; border-radius:8px; border:1px solid var(--border); background:var(--input-bg); color:var(--fg); transition: border-color 0.2s ease, box-shadow 0.2s ease; }
+    input[type="text"]:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 2px rgba(96, 165, 250, 0.3); }
+
+    button{ padding:10px 12px; border-radius:8px; border:0; font-weight:700; cursor:pointer; transition: background-color 0.2s ease, transform 0.1s ease; }
+    button:active { transform: scale(0.97); }
+    button#submitBtn{ background:var(--accent); color:#061122; flex-shrink: 0; }
+    button#submitBtn:hover{ background-color: #7bb6fa; }
+    button.secondary { background: #374151; color: var(--fg); }
+    button.secondary:hover { background-color: #4b5563; }
+    button:disabled { cursor: not-allowed; opacity: 0.6; }
+    
+    .game-stats { display:flex;justify-content:space-between;align-items:center;margin-top:12px; padding: 0 4px; }
+    .small{ font-size:13px; color:var(--muted) }
+    .score{ font-weight:800; font-size:18px; transition: color 0.3s ease, transform 0.2s ease; }
+    .score.good{ color:var(--good); }
+    .score.bad{ color:var(--bad); }
+    .score.updated { transform: scale(1.15); }
+    
+    .reveal{ margin-top:12px; color:#cbd5e1; word-break:break-all;
+             background: #071025; padding: 10px; border-radius: 8px; border-left: 3px solid var(--accent);
+             opacity: 0; transform: translateY(-10px); transition: opacity 0.3s ease, transform 0.3s ease;
+    }
+    .reveal.visible { opacity: 1; transform: translateY(0); }
+    .reveal code { background:#1f2937; padding:2px 6px; border-radius:4px; font-family: monospace; }
+    
+    pre.debug{ font-family:monospace; font-size:12px; color:#cbd5e1; margin-top:8px }
+    .controls-toolbar select, .expansion-toolbar select {
+        padding:8px 10px; border-radius:8px; border:1px solid var(--border);
+        background:var(--input-bg); color:var(--fg); outline:none;
+    }
+    .controls-toolbar label.small { margin-right:4px; }
+    .method-select, .expansion-toolbar { display:flex; align-items:center; gap:6px; flex-wrap: wrap; }
+    .expansion-toolbar input[type="text"] { flex:0 1 60px; padding: 8px 10px; text-align: center; }
+    .expansion-toolbar button { padding: 8px 12px; font-weight: normal; }
   </style>
- <script src="https://cdn.bootcdn.net/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
-  <!-- math.js 用于解析用户表达式 -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/14.6.0/math.js"></script>
+  <script src="https://www.desmos.com/api/v1.8/calculator.js?apiKey=dcb31709b452b1cf9dc26972add0fda6"></script>
+  <script src="https://cdn.jsdelivr.net/npm/nerdamer@1.1.13/all.min.js"></script>
 </head>
 <body>
   <header>
-    <h1>函数拟合猜猜猜</h1>
-    <div class="sub">目标函数在 (0,1) 上有定义。支持拖动平移、滚轮缩放、双指捏合缩放；双击/双击触控或“重置视图”复位。你有 10 次机会，≥ 90% 即胜。</div>
+    <h2 style="margin:0">猜函数</h2>
+    <div class="status-line">请在灰色虚线标出的指定范围内，根据图像拟合出目标函数表达式，95% 以上胜利。</div>
   </header>
 
   <div class="card">
-    <div class="row">
-      <div class="legend">
-        <span class="dot target"></span> 目标函数
-        <span class="dot guess" style="margin-left:10px"></span> 你的猜测
-      </div>
-      <div class="pill" id="triesBadge">第 1 / 10 次</div>
+    <div class="calculator-wrapper">
+      <div id="desmos-calculator"></div>
     </div>
-    <div style="position:relative; width:100%;">
-      <canvas id="chart" height="280"></canvas>
-    </div>
-    <div class="toolbar">
-      <input id="exprInput" type="text" placeholder="例如：sin(x) + 0.5*x^2 - log(x) 或 (1.5^x) * cos(x)" autocomplete="off" />
-      <button id="submitBtn">提交猜测</button>
-      <button class="btn-ghost" id="resetBtn">重置视图</button>
-      <button class="btn-ghost" id="newBtn">新游戏</button>
-    </div>
-    <div class="hint">
-      - 评分只在区间 (0,1) 上计算。允许：x, sin, cos, tan, atan, arctan, log, ln, pi, e，以及 + - * / ^ 和括号。<br/>
-      - 示例：<span class="kbd">(2^x) + 0.3*sin(log(x))</span>，<span class="kbd">x^3 - 0.4*arctan(x)</span>。按 Enter 也可提交。
-    </div>
-    <div class="row" style="margin-top:6px">
-      <div class="status" id="status">相似度阈值 ≥ 90%</div>
-      <div class="score" id="score">相似度：--</div>
-    </div>
-    <div class="reveal" id="reveal" style="display:none"></div>
-  </div>
 
-  <div class="footer">提示：图像展示范围可大于 (0,1)，但评分严格在 (0,1)。拖动平移、滚轮或双指捏合缩放查看细节。</div>
+    <div id="calc-status" class="status-line">加载 Desmos 计算器中…</div>
+    <pre id="calc-debug" class="debug-box" style="display:none"></pre>
+
+    <div class="input-toolbar">
+      <input id="exprInput" type="text" placeholder="例如：sin(x) + 0.5*x^2 - ln(x)" autocomplete="off" />
+      <button id="submitBtn">提交</button>
+    </div>
+    <div class="controls-toolbar">
+      <button id="newBtn" class="secondary">新游戏</button>
+       <div class="method-select">
+        <label for="difficultySelect" class="small">难度：</label>
+        <select id="difficultySelect">
+            <option value="easy">入门</option>
+            <option value="normal" selected>普通</option>
+            <option value="hard">困难</option>
+            <option value="expert">专家</option>
+        </select>
+      </div>
+      <button id="resetBtn" class="secondary">重置视图</button>
+      <button id="revealBtn" class="secondary">揭晓答案</button>
+      <div class="method-select">
+        <label for="methodSelect" class="small">评分：</label>
+        <select id="methodSelect">
+            <option value="composite">综合（推荐）</option>
+            <option value="mae">MAE（平均绝对误差）</option>
+            <option value="rmse">RMSE（均方根误差）</option>
+            <option value="linf">L∞（最大绝对误差）</option>
+            <option value="r2">R²（决定系数）</option>
+            <option value="pearson">皮尔逊相关 r</option>
+            <option value="ssim1d">SSIM（结构相似度）</option>
+            <option value="dtw">DTW（约束动态时间规整）</option>
+            <option value="emd">EMD（分布距离）</option>
+            <option value="spectral">频谱相似度</option>
+            <option value="qhaus">分位 Hausdorff</option>
+            <option value="coincide">重合度</option>
+            <option value="netarea">净面积误差</option>
+        </select>
+      </div>
+    </div>
+    <div class="controls-toolbar expansion-toolbar" style="margin-top: 5px; border-top: 1px solid var(--border); padding-top: 10px;">
+      <label for="expansionMethodSelect" class="small">辅助工具：</label>
+      <select id="expansionMethodSelect">
+        <option value="taylor">泰勒展开</option>
+        <option value="pade">帕德近似</option>
+        <option value="leastsquares">最小二乘拟合</option>
+        <option value="chebyshev">切比雪夫近似</option>
+        <option value="lagrange">拉格朗日插值</option>
+        <option value="neuralnetwork">神经网络拟合</option>
+        <option value="fourier">傅里叶级数</option>
+      </select>
+      <label for="expansionPointInput" class="small" id="expansionPointLabel">在 x=</label>
+      <input id="expansionPointInput" type="text" value="0" title="展开中心点 a"/>
+      <label for="expansionOrderInput" class="small" id="expansionOrderLabel">阶数/次数=</label>
+      <input id="expansionOrderInput" type="text" value="5" title="展开阶数或拟合多项式次数"/>
+      <button id="expandBtn" class="secondary">生成近似</button>
+    </div>
+    <!-- End Expansion Tools UI -->
+
+    <div class="game-stats">
+      <div class="small">次数：<span id="triesBadge">0 / 10</span></div>
+      <div id="status" class="small">相似度：--</div>
+      <div id="score" class="score">--</div>
+    </div>
+
+    <div id="reveal" class="reveal"></div>
+    <div id="expansionResult" class="reveal"></div> <!-- Display for expansion result -->
+    <pre id="game-debug" class="debug" style="display:none"></pre>
+  </div>
 
 <script>
 (function(){
-  // 工具函数
-  const rnd = (a,b)=>a+Math.random()*(b-a);
-  const rndInt=(a,b)=>Math.floor(rnd(a,b+1));
-  const choice=arr=>arr[rndInt(0,arr.length-1)];
-  const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
-  const isFiniteNum = v => Number.isFinite(v) && !Number.isNaN(v);
+  
+  const STATUS_EL = document.getElementById('calc-status');
+  const DEBUG_EL = document.getElementById('calc-debug');
+  const GAME_DEBUG = document.getElementById('game-debug');
+  function logDebug(...args){DEBUG_EL.textContent += args.join(' ') + '\n'; }
+  function logGameDebug(...args){ GAME_DEBUG.style.display='block'; GAME_DEBUG.textContent += args.join(' ') + '\n'; }
+  function setStatus(msg, isError){ document.getElementById('status').textContent = msg; if(isError) { STATUS_EL.classList.add('status-error'); STATUS_EL.textContent = msg; } }
 
-  // 游戏设置
-  const MAX_TRIES = 10;
-  const WIN_THRESHOLD = 90;
-
-  // 采样点
-  const SCORE_X = (()=>{ const xs=[]; const n=250; for(let i=0;i<n;i++){ xs.push((i+0.5)/n); } return xs; })();
-  const PLOT_X = (()=>{ const xs=[]; const n=700, xmin=-1.5, xmax=1.5;
-    for(let i=0;i<n;i++){ xs.push(xmin + (xmax - xmin)*i/(n-1)); } return xs; })();
-
-  // 把函数转成 XY 数据
-  function toXY(f){
-    return PLOT_X.map(x=>{
-      const y = f(x);
-      return isFiniteNum(y) ? {x,y} : {x, y:null};
-    });
+  
+  let calculator = null;
+  function initDesmos(){
+    const elt = document.getElementById('desmos-calculator');
+    if (!elt || typeof Desmos === 'undefined') {
+      setStatus('Desmos 加载失败', true);
+      logDebug('Element #desmos-calculator not found or Desmos object is missing');
+      return;
+    }
+    try {
+      calculator = Desmos.GraphingCalculator(elt, {
+        keypad: false, settingsMenu: false, expressions: false, zoomButtons: false, expressionsTopbar: false, border: false
+      });
+      STATUS_EL.textContent = 'Desmos 渲染完毕';
+      logDebug('Desmos calculator initialized.');
+      setTimeout(() => {
+        try { newGame(); } catch(e) { logGameDebug('newGame error:', e && e.message); }
+      }, 150);
+    } catch(err) {
+      setStatus('Desmos 初始化异常', true);
+      logDebug('Exception in initDesmos:', err && (err.stack || err.message || err));
+    }
   }
+  if (typeof Desmos !== 'undefined') { initDesmos(); } else { window.addEventListener('load', initDesmos); }
+  
+  
+  const MAX_TRIES = 10; const WIN_THRESHOLD = 95; const SAMPLE_N = 500;
+  const Y_MAX_ABS_VALUE = 120;
+  const rnd = (a,b)=> a + Math.random()*(b-a); const rndInt = (a,b)=> Math.floor(rnd(a,b+1));
+  const clamp = (x,a,b)=> Math.max(a, Math.min(b, x)); const isFiniteNum = v => Number.isFinite(v) && !Number.isNaN(v);
+  
+  const DIFFICULTY_LEVELS = {
+      easy: {
+        modeProb: 0.85, 
+        nTermsSum: [1, 2],
+        nTermsProd: [2, 2],
+        nestingSteps: [1, 1],
+        wrappers: ['log', 'cos', 'pow_simple'],
+        powPool: { simple: [2, 3], advanced: [-2, -1, 2, 3] },
+        aPowRange: [1.5, 2.5],
+        coeffRange: [-2.0, 2.0],
+        makeCoeffSimple: true, // Round to nearest 0.5
+        offsetRange: [-1.5, 1.5],
+        shiftRange: [-0.5, 0.5],
+        rangeWidth: [5.0, 8.0],
+      },
+      normal: {
+        modeProb: 0.55,
+        nTermsSum: [2, 4],
+        nTermsProd: [2, 3],
+        nestingSteps: [1, 3],
+        wrappers: ['sin', 'cos', 'atan', 'pow', 'log', 'aPow'],
+        powPool: { simple: [2, 3], advanced: [-2, -1, 2, 3] },
+        aPowRange: [0.4, 3.0],
+        coeffRange: [-2.2, 2.2],
+        makeCoeffSimple: false,
+        offsetRange: [-1.2, 1.2],
+        shiftRange: [-0.9, 0.9],
+        rangeWidth: [2.0, 7.0],
+      },
+      hard: {
+        modeProb: 0.4,
+        nTermsSum: [3, 5],
+        nTermsProd: [2, 3],
+        nestingSteps: [2, 4],
+        wrappers: ['sin', 'cos', 'atan', 'pow', 'log', 'aPow'],
+        powPool: { simple: [2, 3], advanced: [-2, -1, 2, 3, 4] },
+        aPowRange: [0.2, 5.0],
+        coeffRange: [-3.0, 3.0],
+        makeCoeffSimple: false,
+        offsetRange: [-2.0, 2.0],
+        shiftRange: [-1.5, 1.5],
+        rangeWidth: [1.0, 4.0],
+      },
+      expert: {
+        modeProb: 0.3,
+        nTermsSum: [4, 5],
+        nTermsProd: [3, 4],
+        nestingSteps: [3, 5],
+        wrappers: ['sin', 'cos', 'atan', 'pow', 'log', 'aPow'],
+        powPool: { simple: [2, 3], advanced: [-3, -2, -1, 2, 3, 4] },
+        aPowRange: [0.1, 8.0],
+        coeffRange: [-5.0, 5.0],
+        makeCoeffSimple: false,
+        offsetRange: [-3.0, 3.0],
+        shiftRange: [-2.0, 2.0],
+        rangeWidth: [0.8, 2.5],
+      }
+  };
 
-  // 目标函数节点与求值
+  let target=null, tries=0, gameOver=false;
+  let fit_x_min = -1.0, fit_x_max = 1.0;
+
   function makeX(){ return {type:'x'}; }
   function makeUnary(type, inner, extra={}){ return {type, inner, ...extra}; }
-  function evalNode(node, x){
-    try{
-      switch(node.type){
-        case 'x': return x;
-        case 'sin': { const v=evalNode(node.inner,x); if(!isFiniteNum(v)) return NaN; return Math.sin(v); }
-        case 'cos': { const v=evalNode(node.inner,x); if(!isFiniteNum(v)) return NaN; return Math.cos(v); }
-        case 'atan': { const v=evalNode(node.inner,x); if(!isFiniteNum(v)) return NaN; return Math.atan(v); }
-        case 'log': { const v=evalNode(node.inner,x); if(!isFiniteNum(v) || v<=0) return NaN; const r = Math.log(v); return Number.isFinite(r)?r:NaN; }
-        case 'pow': { const v=evalNode(node.inner,x); if(!isFiniteNum(v)) return NaN; const r = Math.pow(v, node.n); return Number.isFinite(r)?r:NaN; }
-        case 'aPow': { const v=evalNode(node.inner,x); if(!isFiniteNum(v)) return NaN; const r = Math.pow(node.a, v); return Number.isFinite(r)?r:NaN; }
-        default: return NaN;
+  function evalNode(node, x){ try{ switch(node.type){ case 'x': return x; case 'sin': { const v=evalNode(node.inner,x); if(!isFiniteNum(v)) return NaN; return Math.sin(v);} case 'cos': { const v=evalNode(node.inner,x); if(!isFiniteNum(v)) return NaN; return Math.cos(v);} case 'atan': { const v=evalNode(node.inner,x); if(!isFiniteNum(v)) return NaN; return Math.atan(v);} case 'log': { const v=evalNode(node.inner,x); if(!isFiniteNum(v)|| v<=0) return NaN; const r=Math.log(v); return Number.isFinite(r)?r:NaN;} case 'pow': { const v=evalNode(node.inner,x); if(!isFiniteNum(v)) return NaN; const r=Math.pow(v, node.n); return Number.isFinite(r)?r:NaN;} case 'aPow': { const v=evalNode(node.inner,x); if(!isFiniteNum(v)) return NaN; const r=Math.pow(node.a, v); return Number.isFinite(r)?r:NaN;} default: return NaN; } }catch(e){ return NaN; } }
+  function nodeToString(node){ switch(node.type){ case 'x': return 'x'; case 'sin': return 'sin('+nodeToString(node.inner)+')'; case 'cos': return 'cos('+nodeToString(node.inner)+')'; case 'atan': return 'arctan('+nodeToString(node.inner)+')'; case 'log': return 'log('+nodeToString(node.inner)+')'; case 'pow': return '('+nodeToString(node.inner)+')^'+node.n; case 'aPow': return '('+formatNum(node.a)+')^('+nodeToString(node.inner)+')'; default: return '?'; } }
+  function formatNum(v){ try{ if(Math.abs(v-Math.round(v))<1e-9) return String(Math.round(v)); if(Math.abs(v)>=1000||Math.abs(v)<0.001) return v.toExponential(2); let s=v.toFixed(3); while(s.endsWith('0')) s=s.slice(0,-1); if(s.endsWith('.')) s=s.slice(0,-1); return s; }catch(e){ return String(v); } }
+  function checkOn01(node, predicate){ for(let i=0; i<50; i++){ const x = (i+0.5)/50.0; const v=evalNode(node,x); if(!isFiniteNum(v) || !predicate(v)) return false; } return true; }
+  
+  function randomUnaryChain(config){ const wrappers=config.wrappers; let node=makeX(); const steps=rndInt(config.nestingSteps[0], config.nestingSteps[1]); for(let k=0;k<steps;k++){ let applied=false; for(let attempt=0;attempt<8 && !applied;attempt++){ const w=wrappers[rndInt(0,wrappers.length-1)]; if(w==='log'){ if(checkOn01(node,v=>v>0.01)){ node=makeUnary('log',node); applied=true; } } else if(w==='pow' || w==='pow_simple'){ const pool = (w==='pow_simple') ? config.powPool.simple : config.powPool.advanced; node=makeUnary('pow',node,{n:pool[rndInt(0,pool.length-1)]}); applied=true; } else if(w==='aPow'){ let a=rnd(config.aPowRange[0], config.aPowRange[1]); if(Math.abs(a-1)<0.15) a += (a<1? -0.2:0.2); node=makeUnary('aPow',node,{a}); applied=true; } else { node=makeUnary(w,node); applied=true; } } } return node; }
+  
+  function stringifySum(offset, terms, coeffs){ const parts=[]; if(Math.abs(offset)>1e-9) parts.push(formatNum(offset)); for(let i=0;i<terms.length;i++){ const c=coeffs[i]; const t=nodeToString(terms[i]); if(Math.abs(c-1)<1e-9) parts.push(t); else if(Math.abs(c+1)<1e-9) parts.push('-' + t); else parts.push(formatNum(c)+' * '+t); } if(parts.length===0) return '0'; let s=parts.join(' + '); return s.replace(/\+ -/g,'- '); }
+  function stringifyProd(scale, terms, shifts){ const parts=[formatNum(scale)]; for(let i=0;i<terms.length;i++){ const u=nodeToString(terms[i]); const b=shifts[i]; if(Math.abs(b)<1e-9) parts.push(u); else parts.push('('+u+' '+(b>=0?'+':'-')+' '+formatNum(Math.abs(b))+')'); } return parts.join(' * '); }
+
+  function buildTarget(config){
+    const mode=Math.random() < config.modeProb ? 'sum':'prod';
+    const nTerms=mode==='sum'?rndInt(config.nTermsSum[0],config.nTermsSum[1]):rndInt(config.nTermsProd[0],config.nTermsProd[1]);
+    const terms=Array.from({length:nTerms}, ()=>randomUnaryChain(config));
+    
+    const makeSimple = c => Math.round(c * 2) / 2; 
+    
+    if(mode==='sum'){
+        const coeffs=terms.map(()=>{
+            let c=rnd(config.coeffRange[0], config.coeffRange[1]);
+            if(config.makeCoeffSimple) c = makeSimple(c);
+            if(Math.abs(c)<0.25) c=(c<0? -0.25:0.25);
+            return c;
+        });
+        let offset=rnd(config.offsetRange[0], config.offsetRange[1]);
+        if(config.makeCoeffSimple) offset = makeSimple(offset);
+        const f = x=>{ let y=offset; for(let i=0;i<terms.length;i++){ const u=evalNode(terms[i],x); if(!isFiniteNum(u)) return NaN; y+=coeffs[i]*u; } return Number.isFinite(y)?y:NaN; };
+        return {f, expr: stringifySum(offset, terms, coeffs)};
+    } else {
+        const shifts=terms.map(()=> {
+            let s = rnd(config.shiftRange[0], config.shiftRange[1]);
+            if(config.makeCoeffSimple) s = makeSimple(s);
+            return s;
+        });
+        let scale=rnd(config.coeffRange[0], config.coeffRange[1]);
+        if(config.makeCoeffSimple) scale = makeSimple(scale);
+        if(Math.abs(scale)<0.25) scale=(scale<0? -0.25:0.25);
+        if(Math.random()<0.35) scale=-scale;
+        const f = x=>{ let y=scale; for(let i=0;i<terms.length;i++){ const u=evalNode(terms[i],x); if(!isFiniteNum(u)) return NaN; const v=u+shifts[i]; if(!isFiniteNum(v)) return NaN; y*=v; } return Number.isFinite(y)?y:NaN; };
+        return {f, expr: stringifyProd(scale, terms, shifts)};
+    }
+  }
+
+  function robustAmplitude(arr){ const a=arr.slice().sort((x,y)=>x-y); const q=p=> a[Math.floor(clamp(p*(a.length-1),0,a.length-1))]; return q(0.95)-q(0.05); }
+
+  function findValidIntervalForFunction(f, config, attempts = 999) {
+      const WORLD_X_MIN = -10.0, WORLD_X_MAX = 10.0;
+      for (let i = 0; i < attempts; i++) {
+          const rangeWidth = rnd(config.rangeWidth[0], config.rangeWidth[1]);
+          const rangeStart = rnd(WORLD_X_MIN, WORLD_X_MAX - rangeWidth);
+          const x_min = rangeStart;
+          const x_max = rangeStart + rangeWidth;
+          const range_xs = Array.from({length: SAMPLE_N}, (_,j)=> x_min + (x_max - x_min)*(j+0.5)/SAMPLE_N);
+          const ys = range_xs.map(x => f(x));
+          const finite_ys = ys.filter(isFiniteNum);
+          if (finite_ys.length < 0.99 * SAMPLE_N) continue;
+          const max_abs_y = finite_ys.reduce((max, y) => Math.max(max, Math.abs(y)), 0);
+          if (max_abs_y > Y_MAX_ABS_VALUE) continue;
+          return { x_min, x_max };
       }
-    }catch(e){ return NaN; }
+      return null;
   }
-  function nodeToString(node){
-    switch(node.type){
-      case 'x': return 'x';
-      case 'sin': return `sin(${nodeToString(node.inner)})`;
-      case 'cos': return `cos(${nodeToString(node.inner)})`;
-      case 'atan': return `arctan(${nodeToString(node.inner)})`;
-      case 'log': return `log(${nodeToString(node.inner)})`;
-      case 'pow': return `(${nodeToString(node.inner)})^${node.n}`;
-      case 'aPow': return `(${formatNum(node.a)})^(${nodeToString(node.inner)})`;
-      default: return '?';
-    }
-  }
-  function formatNum(v){
-    if(Math.abs(v) >= 1000 || Math.abs(v) < 0.001){ return v.toExponential(2); }
-    return (Math.abs(v - Math.round(v)) < 1e-9) ? String(Math.round(v)) : v.toFixed(3).replace(/0+$/,'').replace(/\.$/,'');
-  }
-  function checkOn01(node, predicate){
-    for(const x of SCORE_X){
-      const v = evalNode(node,x);
-      if(!isFiniteNum(v) || !predicate(v)) return false;
-    }
-    return true;
+  
+function scoreSimilarity(fTarget, fGuess, x_min, x_max, method) {
+  
+  if (!method) {
+    const sel = document.getElementById('methodSelect');
+    method = sel ? sel.value : 'composite';
   }
 
-  // 随机生成可在(0,1)上有效的复合单项 U(x)
-  function randomUnaryChain(){
-    const wrappers = ['sin','cos','atan','pow','log','aPow'];
-    let node = makeX();
-    const steps = rndInt(1,3);
-    for(let k=0;k<steps;k++){
-      let applied = false;
-      for(let attempt=0; attempt<8 && !applied; attempt++){
-        const w = choice(wrappers);
-        if(w==='log'){
-          if(checkOn01(node, v=>v>0)){ node = makeUnary('log', node); applied = true; }
-        }else if(w==='pow'){
-          const pool = [-3,-2,-1,2,3,4,5];
-          node = makeUnary('pow', node, {n: choice(pool)});
-          applied = true;
-        }else if(w==='aPow'){
-          let a = rnd(0.4, 3.0);
-          if(Math.abs(a-1)<0.15) a += (a<1? -0.2:0.2);
-          node = makeUnary('aPow', node, {a});
-          applied = true;
-        }else{ // sin, cos, atan
-          node = makeUnary(w, node);
-          applied = true;
-        }
+  const N = SAMPLE_N;
+  const xs = new Array(N);
+  const yT = new Array(N);
+  const dx = (x_max - x_min) / N;
+
+  for (let i = 0; i < N; i++) {
+    xs[i] = x_min + (i + 0.5) * dx;
+    yT[i] = fTarget(xs[i]);
+  }
+
+  
+  let bothFinite0 = 0;
+  for (let i = 0; i < N; i++) {
+    const yG0 = fGuess(xs[i]);
+    if (isFiniteNum(yT[i]) && isFiniteNum(yG0)) bothFinite0++;
+  }
+  const overlap = bothFinite0 / N;
+
+  
+  const calcEl = document.getElementById('desmos-calculator');
+  const rect = calcEl ? calcEl.getBoundingClientRect() : { width: 800, height: 480 };
+  const pxPerX = rect.width / Math.max(x_max - x_min, 1e-9);
+
+  // 视图范围与稳健尺度
+  let yMin = -5, yMax = 5;
+  try { const vr = computeTargetYRange(); yMin = vr.yMin; yMax = vr.yMax; } catch(e) {}
+  const viewRangeY = Math.max(yMax - yMin, 1e-6);
+  const yTF = yT.filter(isFiniteNum);
+  const amp95 = yTF.length ? robustAmplitude(yTF) : viewRangeY;
+  const scale = Math.max(amp95, 0.05 * viewRangeY, 1e-6);
+
+  
+  const pxPerY = rect.height / Math.max(viewRangeY, 1e-9);
+  const COIN_PX_TOL = 2.5;    
+  const COIN_REL_TOL = 0.03; 
+  const yTol = Math.max(COIN_PX_TOL / Math.max(pxPerY, 1e-9), COIN_REL_TOL * scale);
+
+  
+  const SHIFT_PX   = (method === 'dtw' || method === 'qhaus') ? 6 : 5;
+  const SHIFT_STEPS= (method === 'dtw' || method === 'qhaus') ? 4 : 6;
+
+  const deltaMax = SHIFT_PX / Math.max(pxPerX, 1e-9);
+  const deltas = [];
+  for (let k = -SHIFT_STEPS; k <= SHIFT_STEPS; k++) deltas.push(deltaMax * (k / SHIFT_STEPS));
+
+  // 小工具
+  const mean = a => a.reduce((s,v)=>s+v,0) / Math.max(1, a.length);
+  const variance = a => {
+    if (a.length === 0) return 0;
+    const m = mean(a);
+    return mean(a.map(v => (v - m)*(v - m)));
+  };
+  const median = a => {
+    if (!a.length) return NaN;
+    const b = a.slice().sort((x,y)=>x-y);
+    const m = Math.floor((b.length-1)/2);
+    return (b.length % 2) ? b[m] : 0.5*(b[m] + b[m+1]);
+  };
+  const quantile = (arr, p) => {
+    if (!arr.length) return NaN;
+    const b = arr.slice().sort((x,y)=>x-y);
+    const idx = Math.floor(clamp(p*(b.length-1), 0, b.length-1));
+    return b[idx];
+  };
+  const toErrorScore = eNorm => clamp(100 * (1 - eNorm), 0, 100); 
+  const safe = v => Number.isFinite(v) ? v : 0;
+
+  // 1D-SSIM
+  const ssim1d = (x, y, L) => {
+    if (x.length < 3 || y.length < 3) return 0;
+    const mux = mean(x), muy = mean(y);
+    const vx = variance(x), vy = variance(y);
+    const cov = mean(x.map((v,i)=> (v - mux)*(y[i] - muy)));
+    const C1 = Math.pow(0.01 * L, 2);
+    const C2 = Math.pow(0.03 * L, 2);
+    const numerator   = (2*mux*muy + C1) * (2*cov + C2);
+    const denominator = (mux*mux + muy*muy + C1) * (vx + vy + C2);
+    let ssim = denominator > 0 ? (numerator / denominator) : 0;
+    if (!Number.isFinite(ssim)) ssim = 0;
+    return clamp(ssim, 0, 1); 
+  };
+
+  // 约束 DTW
+  const dtwBand = (a, b, w) => {
+    const n = a.length, m = b.length;
+    if (n === 0 || m === 0) return Infinity;
+    w = Math.max(w, Math.abs(n - m));
+    const INF = 1e15;
+    let prev = new Float64Array(m + 1);
+    let curr = new Float64Array(m + 1);
+    for (let j = 0; j <= m; j++) prev[j] = INF;
+    prev[0] = 0;
+    for (let i = 1; i <= n; i++) {
+      for (let j = 0; j <= m; j++) curr[j] = INF;
+      const jStart = Math.max(1, i - w);
+      const jEnd   = Math.min(m, i + w);
+      for (let j = jStart; j <= jEnd; j++) {
+        const cost = Math.abs(a[i-1] - b[j-1]);
+        const val = cost + Math.min(prev[j], curr[j-1], prev[j-1]);
+        curr[j] = val;
       }
+      const tmp = prev; prev = curr; curr = tmp;
     }
-    return node;
-  }
+    const dist = prev[m];
+    return dist / (n + m); 
+  };
 
-  // 组装目标函数（和/积）
-  function buildTarget(){
-    for(let tries=0; tries<60; tries++){
-      const mode = Math.random()<0.55? 'sum' : 'prod';
-      const nTerms = mode==='sum' ? rndInt(2,4) : rndInt(2,3);
-      const terms = Array.from({length:nTerms}, ()=>randomUnaryChain());
+  // 1D EMD
+  const emd1d = (a, b, bins, lo, hi) => {
+    const range = hi - lo;
+    if (!(range > 0) || bins < 2) return 0;
+    const hist = (arr) => {
+      const h = new Float64Array(bins);
+      if (!arr.length) return h;
+      for (const v of arr) {
+        let idx = Math.floor((v - lo) / range * bins);
+        if (idx < 0) idx = 0; if (idx >= bins) idx = bins - 1;
+        h[idx] += 1;
+      }
+      const s = 1 / arr.length;
+      for (let i = 0; i < bins; i++) h[i] *= s;
+      return h;
+    };
+    const hA = hist(a), hB = hist(b);
+    const cA = new Float64Array(bins), cB = new Float64Array(bins);
+    let sa = 0, sb = 0;
+    for (let i = 0; i < bins; i++) { sa += hA[i]; sb += hB[i]; cA[i] = sa; cB[i] = sb; }
+    const bw = range / bins;
+    let emd = 0;
+    for (let i = 0; i < bins; i++) emd += Math.abs(cA[i] - cB[i]) * bw;
+    return emd;
+  };
 
-      if(mode==='sum'){
-        const coeffs = terms.map(()=>{ let c = rnd(-2.2, 2.2); if(Math.abs(c) < 0.25) c = (c<0? -0.25:0.25); return c; });
-        const offset = rnd(-1.2,1.2);
-        const f = x=>{
-          let y = offset;
-          for(let i=0;i<terms.length;i++){
-            const u = evalNode(terms[i], x);
-            if(!isFiniteNum(u)) return NaN;
-            y += coeffs[i] * u;
-          }
-          return Number.isFinite(y)?y:NaN;
+  // 频谱相似度（幅度余弦相似）
+  const spectralSimilarity = (x, y) => {
+    const M = Math.min(x.length, y.length);
+    if (M < 8) return 0;
+    const K = Math.min(32, Math.floor(M / 4));
+    const twoPiOverM = 2 * Math.PI / M;
+    const mx = mean(x), my = mean(y);
+    const wx = new Float64Array(M);
+    for (let n = 0; n < M; n++) wx[n] = 0.5 - 0.5 * Math.cos(2*Math.PI*n/(M-1));
+    const xt = new Float64Array(M), yt = new Float64Array(M);
+    for (let n = 0; n < M; n++) { xt[n] = (x[n] - mx) * wx[n]; yt[n] = (y[n] - my) * wx[n]; }
+
+    const magX = new Float64Array(K), magY = new Float64Array(K);
+    for (let k = 1; k <= K; k++) {
+      let ax = 0, bx = 0, ay = 0, by = 0;
+      for (let n = 0; n < M; n++) {
+        const ang = twoPiOverM * k * n;
+        const c = Math.cos(ang), s = Math.sin(ang);
+        ax += xt[n] * c; bx += xt[n] * s;
+        ay += yt[n] * c; by += yt[n] * s;
+      }
+      const idx = k - 1;
+      magX[idx] = Math.hypot(ax, bx);
+      magY[idx] = Math.hypot(ay, by);
+    }
+    const norm = v => Math.sqrt(v.reduce((s,a)=>s+a*a,0)) || 1e-12;
+    const nx = norm(magX), ny = norm(magY);
+    let dot = 0;
+    for (let i = 0; i < K; i++) dot += (magX[i]/nx) * (magY[i]/ny);
+    return clamp(dot, 0, 1);
+  };
+
+  // 分位 Hausdorff（带索引带宽）
+  const qHausdorff = (a, b, q, wIdx) => {
+    const M = Math.min(a.length, b.length);
+    if (M === 0) return Infinity;
+    const distList = [];
+    for (let i = 0; i < M; i++) {
+      const j0 = Math.max(0, i - wIdx), j1 = Math.min(M - 1, i + wIdx);
+      let best = Infinity;
+      for (let j = j0; j <= j1; j++) best = Math.min(best, Math.abs(a[i] - b[j]));
+      distList.push(best);
+    }
+    for (let j = 0; j < M; j++) {
+      const i0 = Math.max(0, j - wIdx), i1 = Math.min(M - 1, j + wIdx);
+      let best = Infinity;
+      for (let i = i0; i <= i1; i++) best = Math.min(best, Math.abs(b[j] - a[i]));
+      distList.push(best);
+    }
+    return quantile(distList, q);
+  };
+
+  // 记录最优
+  const bestByMethod = {
+    mae: {score: -1}, rmse: {score: -1}, linf: {score: -1},
+    r2: {score: -1}, pearson: {score: -1},
+    ssim1d: {score: -1}, dtw: {score: -1}, emd: {score: -1},
+    spectral: {score: -1}, qhaus: {score: -1}, composite: {score: -1},
+    coincide: {score: -1}, netarea: {score: -1} // 新增：净面积误差
+  };
+
+  for (const delta of deltas) {
+    // 只保留 t 与 (x+delta) 处 g 都有限的点
+    const t = [], g = [];
+    for (let i = 0; i < N; i++) {
+      const yt = yT[i];
+      if (!isFiniteNum(yt)) continue;
+      const yg = fGuess(xs[i] + delta);
+      if (!isFiniteNum(yg)) continue;
+      t.push(yt); g.push(yg);
+    }
+    const coverage = t.length / N;
+    if (t.length === 0) {
+      for (const k in bestByMethod)
+        if (bestByMethod[k].score < 0) bestByMethod[k] = { score: 0, coverage: 0, delta, b: 0 };
+      continue;
+    }
+
+    // 垂直偏置（用中位数对齐）
+    const diffs = t.map((v,i)=> v - g[i]);
+    const b = median(diffs);
+    const gB = g.map(v => v + b);
+
+    // 残差
+    const r = t.map((v,i)=> v - gB[i]);
+    const absR = r.map(x => Math.abs(x)); // 使用标准绝对值用于MAE
+    const sqR  = r.map(v=>v*v);
+    const mae  = mean(absR);
+    const rmse = Math.sqrt(mean(sqR));
+    const linf = absR.length ? Math.max(...absR) : Infinity;
+
+    // R^2 / 皮尔逊
+    const tMean = mean(t);
+    const gMean = mean(gB);
+    const SSE = sqR.reduce((s,v)=> s+v, 0);
+    const TSS = t.reduce((s,v)=> s + (v - tMean)*(v - tMean), 0);
+    const R2 = (TSS > 0) ? (1 - SSE / TSS) : (SSE === 0 ? 1 : 0);
+    const varT = variance(t), varG = variance(gB);
+    const covTG = mean(t.map((v,i)=> (v - tMean) * (gB[i] - gMean)));
+    const rPearson = (varT > 0 && varG > 0) ? clamp(covTG / Math.sqrt(varT * varG), -1, 1) : 0;
+
+    // 结构相似、DTW
+    const ssim = ssim1d(t, gB, scale);
+    const normT = t.map(v => v / scale);
+    const normG = gB.map(v => v / scale);
+    const wBand = Math.max(5, Math.floor(0.06 * t.length)); 
+    const dtwNorm = dtwBand(normT, normG, wBand);
+
+    // EMD（分布距离）
+    const tQ2 = quantile(t, 0.02), tQ98 = quantile(t, 0.98);
+    const gQ2 = quantile(gB, 0.02), gQ98 = quantile(gB, 0.98);
+    const lo = Math.min(tQ2, gQ2), hi = Math.max(tQ98, gQ98);
+    const emd = emd1d(t, gB, 40, lo, hi);
+
+    // 频谱相似
+    const sSpec = spectralSimilarity(t, gB);
+
+    // 分位 Hausdorff
+    const wIdx = Math.max(2, Math.floor(0.5 * (deltaMax / Math.max(dx,1e-12))));
+    const qH = qHausdorff(t, gB, 0.95, wIdx);
+
+    // 重合度
+    const coincideHits = r.reduce((acc, v) => acc + (Math.abs(v) <= yTol ? 1 : 0), 0);
+    const coincideFrac = r.length ? (coincideHits / r.length) : 0;
+    const sCOIN = 100 * coincideFrac;
+
+    const r_unaligned = t.map((v, i) => v - g[i]); 
+    const integralDiff_unaligned = dx * r_unaligned.reduce((sum, val) => sum + val, 0);
+    const netAreaError = Math.abs(integralDiff_unaligned);
+    
+    // 归一化和评分逻辑保持不变
+    const intervalWidth = x_max - x_min;
+    const normNetAreaError = (scale > 1e-9 && intervalWidth > 1e-9) ? netAreaError / (scale * intervalWidth) : (netAreaError > 1e-9 ? Infinity : 0);
+    const sNETAREA = toErrorScore(normNetAreaError);
+
+    // 评分映射
+    const sMAE  = toErrorScore(mae  / scale);
+    const sRMSE = toErrorScore(rmse / scale);
+    const sLINF = toErrorScore(linf / scale);
+    const sR2   = clamp(100 * Math.max(0, Math.min(1, R2)), 0, 100);
+    const sR    = clamp(100 * Math.pow(Math.max(0, rPearson), 2), 0, 100); 
+    const sSSIM = clamp(100 * ssim, 0, 100);
+    const sDTW  = toErrorScore(dtwNorm);
+    const sEMD  = toErrorScore(emd / scale);
+    const sSPEC = clamp(100 * sSpec, 0, 100);
+    const sQH   = toErrorScore(qH / scale);
+
+    const composite = (
+      0.05 * sRMSE + 0.15 * sLINF + 0.20 * sQH +
+      0.10 * sR2   + 0.10 * sR    + 0.15 * sSSIM +
+      0.125 * sCOIN + 0.125 * sNETAREA
+    );
+
+    const candidates = {
+      mae:       coverage * sMAE,
+      rmse:      coverage * sRMSE,
+      linf:      coverage * sLINF,
+      r2:        coverage * sR2,
+      pearson:   coverage * sR,
+      ssim1d:    coverage * sSSIM,
+      dtw:       coverage * sDTW,
+      emd:       coverage * sEMD,
+      spectral:  coverage * sSPEC,
+      qhaus:     coverage * sQH,
+      coincide:  coverage * sCOIN,
+      netarea:   coverage * sNETAREA,
+      composite: coverage * composite,
+    };
+
+    // 记录最优
+    for (const key of Object.keys(candidates)) {
+      if (candidates[key] > (bestByMethod[key].score ?? -1)) {
+        bestByMethod[key] = {
+          score: candidates[key],
+          coverage, delta, b,
+          MAE: mae, RMSE: rmse, LINF: linf, R2, r: rPearson,
+          SSIM: ssim, DTW: dtwNorm, EMD: emd, SPEC: sSpec, QHaus: qH,
+          CoinTol: yTol, CoinFrac: coincideFrac,
+          NetArea: netAreaError
         };
-        if(isFunctionValidOn01(f)){
-          return { f, expr: stringifySum(offset, terms, coeffs) };
-        }
-      }else{
-        const shifts = terms.map(()=> rnd(-0.9,0.9));
-        let scale = rnd(0.4, 1.6);
-        if(Math.random()<0.35) scale = -scale;
-        const f = x=>{
-          let y = scale;
-          for(let i=0;i<terms.length;i++){
-            const u = evalNode(terms[i], x);
-            if(!isFiniteNum(u)) return NaN;
-            const v = u + shifts[i];
-            if(!isFiniteNum(v)) return NaN;
-            y *= v;
-          }
-          return Number.isFinite(y)?y:NaN;
-        };
-        if(isFunctionValidOn01(f)){
-          return { f, expr: stringifyProd(scale, terms, shifts) };
+      }
+    }
+  }
+
+  const best = bestByMethod[method] || bestByMethod['composite'];
+
+  return {
+    similarity: clamp(best.score, 0, 100),
+    overlap, 
+    components: {
+      methodUsed: method,
+      alignedOverlap: +((best.coverage ?? 0).toFixed(3)),
+      bestShift: +((best.delta ?? 0).toFixed(6)),
+      bestBias: +((best.b ?? 0).toFixed(6)),
+      MAE: +(best.MAE ?? 0).toFixed(6),
+      RMSE: +(best.RMSE ?? 0).toFixed(6),
+      Linf: +(best.LINF ?? 0).toFixed(6),
+      R2: +(best.R2 ?? 0).toFixed(6),
+      r: +(best.r ?? 0).toFixed(6),
+      SSIM: +(best.SSIM ?? 0).toFixed(6),
+      DTW: +(best.DTW ?? 0).toFixed(6),
+      EMD: +(best.EMD ?? 0).toFixed(6),
+      Spectral: +(best.SPEC ?? 0).toFixed(6),
+      QHaus: +(best.QHaus ?? 0).toFixed(6),
+      NetArea: +(best.NetArea ?? 0).toFixed(6), // 新增
+      scale: +scale.toFixed(6),
+      CoinTol: +(best.CoinTol ?? 0).toFixed(6),
+      CoinFrac: +(best.CoinFrac ?? 0).toFixed(6)
+    }
+  };
+}
+  
+  
+  function clearGuesses(){ if(calculator){ calculator.removeExpression({id: 'guess-func'}); } }
+
+
+const FUNC_NAMES = new Set(['sin','cos','tan','asin','acos','atan','arctan','sinh','cosh','tanh','log','ln','sqrt','exp','abs']);
+function normalizeExpression(expr) {
+  if (!expr || typeof expr !== 'string') return expr;
+  let s = expr.trim();
+
+  
+  s = s.replace(/[\u3000\u00A0]/g, ' ');
+
+  
+  const tokenRegex = /(\d+(\.\d+)?([eE][+\-]?\d+)?|[A-Za-z]+|[\(\)\[\]\{\}]|[+\-*/^%,])/g;
+  const rawTokens = s.match(tokenRegex) || [];
+
+  const tokens = [];
+  
+  for (let t of rawTokens) {
+    if (/^\d+(\.\d+)?([eE][+\-]?\d+)?$/.test(t)) {
+      tokens.push({type:'number', text:t});
+    } else if (/^[A-Za-z]+$/.test(t)) {
+      tokens.push({type:'name', text:t});
+    } else if (/^[\(\)\[\]\{\}]$/.test(t)) {
+      tokens.push({type:'paren', text:t});
+    } else {
+      tokens.push({type:'op', text:t});
+    }
+  }
+
+  
+  const out = [];
+  for (let i = 0; i < tokens.length; i++) {
+    const cur = tokens[i];
+    const prev = i > 0 ? tokens[i-1] : null;
+
+    
+    
+    if (prev && prev.type === 'name' && FUNC_NAMES.has(prev.text.toLowerCase())
+        && cur.type !== 'paren' && (cur.type === 'name' || cur.type === 'number')) {
+      
+      if (out.length && out[out.length-1] === prev.text) {
+        out.pop(); 
+      }
+      
+      out.push(prev.text + '(' + cur.text + ')');
+      
+      continue;
+    }
+
+    
+    if (prev) {
+      const leftIs = prev.type;
+      const rightIs = cur.type;
+      const needMul =
+        ((leftIs === 'number' || leftIs === 'name' || (leftIs === 'paren' && prev.text === ')'))
+          &&
+         (rightIs === 'name' || rightIs === 'number' || (rightIs === 'paren' && cur.text === '(')));
+      if (needMul) {
+        
+        if (!(prev.type === 'name' && FUNC_NAMES.has(prev.text.toLowerCase()) && cur.type === 'paren' && cur.text === '(')) {
+          
+          out.push('*' + cur.text);
+          continue;
         }
       }
     }
-    const t = randomUnaryChain();
-    const f = x=> evalNode(t,x);
-    return { f, expr: nodeToString(t) };
+
+    
+    out.push(cur.text);
   }
 
-  function stringifySum(offset, terms, coeffs){
-    const parts = [];
-    if(Math.abs(offset) > 1e-12) parts.push(formatNum(offset));
-    for(let i=0;i<terms.length;i++){
-      const c = coeffs[i];
-      const u = nodeToString(terms[i]);
-      parts.push(`${formatNum(c)} * (${u})`);
-    }
-    return joinWithSigns(parts);
-  }
-  function stringifyProd(scale, terms, shifts){
-    const parts = [formatNum(scale)];
-    for(let i=0;i<terms.length;i++){
-      const u = nodeToString(terms[i]);
-      const b = shifts[i];
-      parts.push(`(${u} ${b>=0?'+':'-'} ${formatNum(Math.abs(b))})`);
-    }
-    return parts.join(' * ');
-  }
-  function joinWithSigns(parts){
-    if(parts.length===0) return '0';
-    let s = parts[0];
-    for(let i=1;i<parts.length;i++){
-      let p = parts[i].trim();
-      if(p.startsWith('-')) s += ' - ' + p.slice(1).trim();
-      else s += ' + ' + p;
-    }
-    return s;
-  }
+  
+  let rebuilt = out.join(' ');
 
-  function isFunctionValidOn01(f){
-    const ys = SCORE_X.map(x=>f(x)).filter(isFiniteNum);
-    if(ys.length < 0.9 * SCORE_X.length) return false;
-    return robustAmplitude(ys) > 1e-6;
-  }
-  function robustAmplitude(arr){
-    const a = arr.slice().sort((x,y)=>x-y);
-    const q = p=> a[Math.floor(clamp(p*(a.length-1),0,a.length-1))];
-    return q(0.95)-q(0.05);
-  }
+  
+  rebuilt = rebuilt.replace(/\s+/g, ' ').replace(/\*\s+\(/g, '*(').replace(/\s+\*/g, '*').replace(/ln/g,'log').trim();
 
-  function scoreSimilarity(fTarget, fGuess){
-    const yt=[], yg=[];
-    for(const x of SCORE_X){
-      const t=fTarget(x), g=fGuess(x);
-      if(isFiniteNum(t) && isFiniteNum(g)){ yt.push(t); yg.push(g); }
-    }
-    const overlap = yt.length / SCORE_X.length;
-    if(yt.length < 0.5 * SCORE_X.length) return { similarity: 0, overlap };
-    const amp = robustAmplitude(yt);
-    const scale = amp>1e-9 ? amp : (avgAbs(yt)+1);
-    let mse=0;
-    for(let i=0;i<yt.length;i++){ const d=yt[i]-yg[i]; mse+=d*d; }
-    mse/=yt.length;
-    const rmse = Math.sqrt(mse);
-    const nrmse = rmse/scale;
-    return { similarity: clamp(100*(1-nrmse),0,100), overlap };
-  }
-  function avgAbs(a){ return a.reduce((s,v)=>s+Math.abs(v),0)/a.length; }
+  
+  
+  return rebuilt;
+}
 
-  // 图表初始化（使用线性连续坐标 + XY 数据）
-  const ctx = document.getElementById('chart').getContext('2d');
-  const chart = new Chart(ctx, {
-    type:'line',
-    data:{ datasets:[{
-      label:'目标函数',
-      data: [],
-      borderColor:'#60a5fa',
-      borderWidth:2,
-      pointRadius:0,
-      spanGaps:true,
-      tension:0
-    }]},
-    options:{
-      responsive:true,
-      maintainAspectRatio:false,
-      animation:false,
-      interaction:{ intersect:false, mode:'nearest' },
-      scales:{
-        x:{ type:'linear', grid:{color:'rgba(255,255,255,0.06)'}, ticks:{color:'#9ca3af'} },
-        y:{ type:'linear', grid:{color:'rgba(255,255,255,0.06)'}, ticks:{color:'#9ca3af'} }
-      },
-      plugins:{ legend:{ display:false }, tooltip:{ enabled:true } }
-    }
-  });
-
-  // 视图与交互（无插件）
-  const WORLD = { xMin: PLOT_X[0], xMax: PLOT_X[PLOT_X.length-1], yMin:-10, yMax:10 };
-  let view = { xMin: WORLD.xMin, xMax: WORLD.xMax, yMin: WORLD.yMin, yMax: WORLD.yMax };
-
-  function computeWorldYFromTarget(){
-    const ds0 = chart.data.datasets[0]?.data || [];
-    const ys = ds0.map(p=>p?.y).filter(isFiniteNum);
-    if(ys.length<5){ WORLD.yMin=-5; WORLD.yMax=5; return; }
-    ys.sort((a,b)=>a-b);
-    const q = p=> ys[Math.floor(clamp(p*(ys.length-1),0,ys.length-1))];
-    let lo = q(0.02), hi = q(0.98);
-    if(!(hi>lo)){ hi=lo+1; }
-    const pad = (hi-lo)*0.15 + 1e-6;
-    WORLD.yMin = lo - pad;
-    WORLD.yMax = hi + pad;
-  }
-  function applyView(){
-    chart.options.scales.x.min = view.xMin;
-    chart.options.scales.x.max = view.xMax;
-    chart.options.scales.y.min = view.yMin;
-    chart.options.scales.y.max = view.yMax;
-    chart.update('none');
-  }
-  function resetView(){
-    computeWorldYFromTarget();
-    view = { xMin: WORLD.xMin, xMax: WORLD.xMax, yMin: WORLD.yMin, yMax: WORLD.yMax };
-    applyView();
-  }
-  function clampView(){
-    const minSpanX = (WORLD.xMax - WORLD.xMin)/500;
-    const minSpanY = (WORLD.yMax - WORLD.yMin)/500;
-    let {xMin,xMax,yMin,yMax} = view;
-    // 保证最小跨度
-    if(xMax - xMin < minSpanX){
-      const c = (xMax+xMin)/2; xMin = c - minSpanX/2; xMax = c + minSpanX/2;
-    }
-    if(yMax - yMin < minSpanY){
-      const c = (yMax+yMin)/2; yMin = c - minSpanY/2; yMax = c + minSpanY/2;
-    }
-    // 限制到世界边界（x）
-    const spanX = xMax - xMin;
-    xMin = clamp(xMin, WORLD.xMin, WORLD.xMax - spanX);
-    xMax = xMin + spanX;
-    view = { xMin, xMax, yMin, yMax };
-  }
-  function getScaleXYFromClient(clientX, clientY){
-    const rect = chart.canvas.getBoundingClientRect();
-    const px = clientX - rect.left;
-    const py = clientY - rect.top;
-    const sx = chart.scales.x, sy = chart.scales.y;
-    const x = sx.getValueForPixel(px);
-    const y = sy.getValueForPixel(py);
-    return {x, y, px, py};
-  }
-  function zoomAt(centerX, centerY, kx, ky){
-    const {xMin,xMax,yMin,yMax} = view;
-    const nxMin = centerX + (xMin - centerX) * kx;
-    const nxMax = centerX + (xMax - centerX) * kx;
-    const nyMin = centerY + (yMin - centerY) * ky;
-    const nyMax = centerY + (yMax - centerY) * ky;
-    view = { xMin:nxMin, xMax:nxMax, yMin:nyMin, yMax:nyMax };
-    clampView(); applyView();
-  }
-  function panBy(dx, dy){
-    view = { xMin:view.xMin + dx, xMax:view.xMax + dx, yMin:view.yMin + dy, yMax:view.yMax + dy };
-    clampView(); applyView();
-  }
-
-  // 鼠标滚轮缩放（同时缩放 x、y，滚轮方向决定放大/缩小）
-  chart.canvas.addEventListener('wheel', e=>{
-    e.preventDefault();
-    const {x:cx, y:cy} = getScaleXYFromClient(e.clientX, e.clientY);
-    if(!isFiniteNum(cx) || !isFiniteNum(cy)) return;
-    const k = Math.exp(-e.deltaY * 0.0015); // 平滑因子
-    zoomAt(cx, cy, k, k);
-  }, {passive:false});
-
-  // 拖动平移 + 双指捏合缩放
-  const pointers = new Map();
-  let isPan = false, lastPan = {x:0,y:0};
-  let pinch = null; // {startDist, startCenter:{x,y}, viewStart:{...}}
-
-  chart.canvas.addEventListener('pointerdown', e=>{
-    chart.canvas.setPointerCapture?.(e.pointerId);
-    pointers.set(e.pointerId, {x:e.clientX, y:e.clientY});
-    if(pointers.size===1){
-      isPan = true;
-      const p = getScaleXYFromClient(e.clientX, e.clientY);
-      lastPan = {x:p.x, y:p.y};
-    }else if(pointers.size===2){
-      isPan = false;
-      const [a,b] = Array.from(pointers.values());
-      const mid = {x:(a.x+b.x)/2, y:(a.y+b.y)/2};
-      const sc = getScaleXYFromClient(mid.x, mid.y);
-      pinch = {
-        startDist: Math.hypot(a.x-b.x, a.y-b.y),
-        startCenter: { x: sc.x, y: sc.y },
-        viewStart: {...view}
-      };
-    }
-  });
-  chart.canvas.addEventListener('pointermove', e=>{
-    if(!pointers.has(e.pointerId)) return;
-    pointers.set(e.pointerId, {x:e.clientX, y:e.clientY});
-    if(pointers.size===1 && isPan){
-      const p = getScaleXYFromClient(e.clientX, e.clientY);
-      const dx = lastPan.x - p.x; // 注意方向：视图随指针移动
-      const dy = lastPan.y - p.y;
-      panBy(dx, dy);
-      lastPan = {x:p.x, y:p.y};
-    }else if(pointers.size===2 && pinch){
-      const [a,b] = Array.from(pointers.values());
-      const d = Math.hypot(a.x-b.x, a.y-b.y);
-      if(d<5) return;
-      const mid = {x:(a.x+b.x)/2, y:(a.y+b.y)/2};
-      const sc = getScaleXYFromClient(mid.x, mid.y);
-      const k = clamp(pinch.startDist / d, 0.02, 50); // 捏合放大 => k<1；拉开缩小 => k>1
-      // 以开始时中心缩放，再按中心位移平移
-      let xMin = pinch.viewStart.xMin, xMax = pinch.viewStart.xMax;
-      let yMin = pinch.viewStart.yMin, yMax = pinch.viewStart.yMax;
-      // 缩放
-      xMin = pinch.startCenter.x + (xMin - pinch.startCenter.x) * k;
-      xMax = pinch.startCenter.x + (xMax - pinch.startCenter.x) * k;
-      yMin = pinch.startCenter.y + (yMin - pinch.startCenter.y) * k;
-      yMax = pinch.startCenter.y + (yMax - pinch.startCenter.y) * k;
-      // 平移（跟随中心点）
-      const dx = pinch.startCenter.x - sc.x;
-      const dy = pinch.startCenter.y - sc.y;
-      view = { xMin:xMin + dx, xMax:xMax + dx, yMin:yMin + dy, yMax:yMax + dy };
-      clampView(); applyView();
-    }
-  }, {passive:false});
-  function endPointer(e){
-    pointers.delete(e.pointerId);
-    if(pointers.size===0){
-      isPan = false; pinch = null;
-    }else if(pointers.size===1){
-      // 切回单指平移
-      pinch = null; isPan = true;
-      const last = Array.from(pointers.values())[0];
-      const p = getScaleXYFromClient(last.x, last.y);
-      lastPan = {x:p.x, y:p.y};
+  
+  function exprToDesmosLatex(exprRaw){
+    const orig = exprRaw || '';
+    const s = normalizeExpression(orig.trim());
+    
+    const sForParse = s.replace(/ln\(/gi,'log(').replace(/arctan/gi,'atan');
+    try {
+      const node = math.parse(sForParse);
+      let tex = node.toTex({parenthesis: 'keep'});
+      
+      tex = tex.replace(/\\left/g,'').replace(/\\right/g,'');
+      
+      if(/(^|[^a-zA-Z])ln\(/i.test(s)) {
+        tex = tex.replace(/\\log/g,'\\ln');
+      }
+      
+      tex = tex.replace(/\\operatorname\{atan\}/g,'\\arctan').replace(/\\mathrm\{atan\}/g,'\\arctan');
+      return tex;
+    } catch(e){
+      
+      let fallback = s.replace(/arctan/gi,'\\arctan').replace(/atan/gi,'\\arctan')
+                      .replace(/sin\(/gi,'\\sin(').replace(/cos\(/gi,'\\cos(')
+                      .replace(/ln\(/gi,'\\ln(').replace(/log\(/gi,'\\ln(');
+      return fallback;
     }
   }
-  chart.canvas.addEventListener('pointerup', endPointer);
-  chart.canvas.addEventListener('pointercancel', endPointer);
-  chart.canvas.addEventListener('pointerout', e=>{
-    // 防止鼠标移出导致卡死
-    if(e.pointerType==='mouse') endPointer(e);
-  });
 
-  // 双击/双击触控复位
-  chart.canvas.addEventListener('dblclick', resetView);
-  let lastTap=0;
-  chart.canvas.addEventListener('touchend', ()=>{
-    const now = Date.now();
-    if(now - lastTap < 300) resetView();
-    lastTap = now;
-  });
+  function addGuessCurve(exprRaw){
+    if(!calculator) return;
+    const latex = exprToDesmosLatex(exprRaw);
+    calculator.setExpression({ id: 'guess-func', latex: 'y = ' + latex, color: '#ef4444', lineWidth: 2.5 });
+  }
 
-  // 全局状态
-  let target = null;
-  let tries = 0;
-  let gameOver = false;
+  function compileUserExpr(exprRaw){ let expr=(exprRaw||'').trim(); if(!expr) throw new Error('请输入表达式'); expr = expr.replace(/arctan/gi,'atan').replace(/ln/gi,'log'); const compiled = math.compile(expr); return x=>{ try{ const v=compiled.evaluate({x, pi:Math.PI, e:Math.E}); const y=Number(v); return isFiniteNum(y)?y:NaN; }catch(e){ return NaN; } } }
+  function updateTries(){ document.getElementById('triesBadge').innerText = (tries) + ' / ' + MAX_TRIES; }
+  function setScoreText(val, good=null){ const el=document.getElementById('score'); el.classList.remove('good','bad', 'updated'); if(good===true) el.classList.add('good'); if(good===false) el.classList.add('bad'); el.textContent = typeof val==='number'? val.toFixed(1)+'%': val; void el.offsetWidth; el.classList.add('updated'); setTimeout(() => el.classList.remove('updated'), 200); }
+  function showReveal(expr){ const el=document.getElementById('reveal'); el.innerHTML = '正确答案：<code>' + expr.replace(/\\cdot/g, '*').replace(/\\/g, '').replace(/log/g,'ln') + '</code>'; el.classList.add('visible'); }
+  function hideReveal(){ const el=document.getElementById('reveal'); el.classList.remove('visible'); }
+  function resetView(){ if(!calculator) return; try{ const {yMin,yMax} = computeTargetYRange(); calculator.setMathBounds({ left: fit_x_min - 0.5, right: fit_x_max + 0.5, bottom: yMin, top: yMax }); calculator.removeExpression({id: 'expansion-func'}); calculator.removeExpression({id: 'guess-func'});}catch(e){} }
+  function computeTargetYRange(){ if(!target || !target.f) return {yMin:-5,yMax:5}; const range_xs = Array.from({length: SAMPLE_N}, (_,i)=> fit_x_min + (fit_x_max - fit_x_min)*(i+0.5)/SAMPLE_N); const ys = range_xs.map(x=>target.f(x)).filter(isFiniteNum); if(ys.length<5) return {yMin:-5,yMax:5}; ys.sort((a,b)=>a-b); const q=p=> ys[Math.floor(clamp(p*(ys.length-1),0,ys.length-1))]; let lo=q(0.02), hi=q(0.98); if(!(hi>lo)) hi=lo+1; const pad=(hi-lo)*0.15+0.5; return {yMin:lo-pad, yMax:hi+pad}; }
 
   function newGame(){
-    tries = 0; gameOver = false;
-    updateTries();
-    setStatus('相似度阈值 ≥ 90%');
-    setScore('--');
-    hideReveal();
+    tries = 0; gameOver = false; updateTries(); setStatus('正在生成新挑战...'); setScoreText('--'); hideReveal();
+    document.getElementById('expansionResult').classList.remove('visible'); 
+    if (calculator) calculator.removeExpression({id: 'expansion-func'}); 
+    enableControls(false);
 
-    target = buildTarget();
-    chart.data.datasets[0].data = toXY(target.f);
-    // 根据目标曲线设置视图
+    const difficulty = document.getElementById('difficultySelect').value || 'normal';
+    const config = DIFFICULTY_LEVELS[difficulty];
+
+    let foundValidGame = false; let generationAttempts = 0; const maxGenerationAttempts = 150;
+    while (!foundValidGame && generationAttempts < maxGenerationAttempts) {
+        generationAttempts++;
+        const candidateTarget = buildTarget(config);
+        const validInterval = findValidIntervalForFunction(candidateTarget.f, config);
+        if (validInterval) {
+            target = candidateTarget;
+            fit_x_min = validInterval.x_min;
+            fit_x_max = validInterval.x_max;
+            foundValidGame = true;
+        }
+    }
+
+    if (!foundValidGame) {
+        console.error("生成有效游戏失败，已达最大尝试次数 " + maxGenerationAttempts);
+        setStatus("生成新游戏失败，请刷新页面或重试", true);
+        return;
+    }
+    
+    if(calculator) {
+        calculator.setExpressions([
+            { id: 'target-func', latex: `y = ${exprToDesmosLatex(target.expr)}`, color: '#60a5fa', lineWidth: 3.5 },
+            { id: 'rangeLine1', latex: `x = ${fit_x_min}`, color: '#9ca3af', lineStyle: Desmos.Styles.DASHED },
+            { id: 'rangeLine2', latex: `x = ${fit_x_max}`, color: '#9ca3af', lineStyle: Desmos.Styles.DASHED }
+        ]);
+    }
+    
     resetView();
-
-    // 清空历史猜测
     clearGuesses();
-    enableInput(true);
+    enableControls(true);
     document.getElementById('exprInput').value='';
+    setStatus('新挑战开始，请在指定范围内拟合函数...');
   }
 
-  function clearGuesses(){
-    chart.data.datasets = chart.data.datasets.slice(0,1);
-    chart.update();
-  }
-  function addGuessCurve(fGuess, idx){
-    const ds = {
-      label:'猜测'+idx,
-      data: toXY(fGuess),
-      borderColor:'#f87171',
-      borderWidth:1.8,
-      pointRadius:0,
-      spanGaps:true,
-      tension:0
-    };
-    chart.data.datasets.push(ds);
-    chart.update('none');
-  }
+  function enableControls(state){ document.getElementById('exprInput').disabled = !state; document.getElementById('submitBtn').disabled = !state; document.getElementById('revealBtn').disabled = !state; document.getElementById('newBtn').disabled = !state; document.getElementById('expandBtn').disabled = !state; }
+  function submit(){ if(gameOver && tries >= MAX_TRIES) return; const expr=document.getElementById('exprInput').value; if(!expr.trim()){ setStatus('错误：请输入表达式'); return; } if(expr.includes('=')){ setStatus('错误：表达式不能包含等号 (=)'); setScoreText(0, false); return; } tries++; updateTries(); let fGuess; try { fGuess = compileUserExpr(expr); } catch(e) { setStatus('表达式解析失败：' + (e.message || '语法错误')); setScoreText(0, false); return; } const res = scoreSimilarity(target.f, fGuess, fit_x_min, fit_x_max); addGuessCurve(expr); setStatus('定义域重合度：' + Math.round(res.overlap*100) + '%'); setScoreText(res.similarity, res.similarity >= WIN_THRESHOLD); if(res.similarity >= WIN_THRESHOLD){ setStatus('恭喜！函数匹配成功！'); gameOver=true; showReveal(target.expr); return; } if(tries >= MAX_TRIES){ setStatus('挑战失败，次数已用尽。'); gameOver=true; showReveal(target.expr); return; } }
+  function revealAnswer(){ if(gameOver || !target) return; if (confirm('确定要揭晓答案吗？这将结束当前游戏。')) { setStatus('答案已揭晓。'); gameOver = true; showReveal(target.expr); } }
+  
+function getSymbolicDerivatives(funcExpr, a, order, variable = 'x') {
+    
+    const parsableExpr = String(funcExpr)
+        .replace(/arctan/gi, 'atan')
+        .replace(/ln/gi, 'log');
 
-  function updateTries(){ document.getElementById('triesBadge').innerText = `第 ${tries+1} / ${MAX_TRIES} 次`; }
-  function setStatus(msg){ document.getElementById('status').innerText = msg; }
-  function setScore(val, good=null){
-    const el = document.getElementById('score');
-    el.classList.remove('good','bad');
-    if(good===true) el.classList.add('good');
-    if(good===false) el.classList.add('bad');
-    el.innerText = `相似度：${typeof val==='number'? val.toFixed(1)+'%':val}`;
-  }
-  function showReveal(expr){
-    const el = document.getElementById('reveal');
-    el.style.display='block';
-    el.innerHTML = `目标函数：<span class="kbd">${expr}</span>`;
-  }
-  function hideReveal(){
-    const el = document.getElementById('reveal');
-    el.style.display='none';
-    el.innerHTML='';
-  }
-  function enableInput(b){
-    document.getElementById('exprInput').disabled = !b;
-    document.getElementById('submitBtn').disabled = !b;
-  }
+    
+    function toNumberFromNerdamerVal(valObj) {
+        try {
+            
+            const txt = (valObj && typeof valObj.text === 'function') ? valObj.text() : String(valObj);
 
-  // 用户表达式 -> 函数
-  function compileUserExpr(exprRaw){
-    let expr = (exprRaw||'').trim();
-    if(!expr) throw new Error('请输入表达式');
-    expr = expr.replace(/\barctan\b/gi, 'atan').replace(/\bln\b/gi, 'log');
-    const compiled = math.compile(expr);
-    const f = x=>{
-      try{
-        const v = compiled.evaluate({x, pi:Math.PI, e:Math.E});
-        const y = Number(v);
-        return isFiniteNum(y)?y:NaN;
-      }catch(e){ return NaN; }
-    };
-    return f;
-  }
+            
+            if (typeof math !== 'undefined' && math && typeof math.evaluate === 'function') {
+                let num = math.evaluate(txt);
+                
+                
+                if (num && typeof num.toNumber === 'function') {
+                    num = num.toNumber();
+                } else if (typeof num === 'object' && num && num.valueOf) {
+                    num = num.valueOf();
+                }
+                
+                if (typeof num === 'number') return num;
+                const n = Number(num);
+                if (Number.isFinite(n)) return n;
+            }
 
-  // 提交
-  function submit(){
-    if(gameOver) return;
-    const expr = document.getElementById('exprInput').value;
-    if(!expr.trim()){ setStatus('请输入表达式后提交'); return; }
+            
+            if (typeof nerdamer !== 'undefined' && nerdamer && typeof nerdamer === 'function') {
+                try {
+                    
+                    const numeric = nerdamer(txt).evaluate();
+                    const t2 = (numeric && typeof numeric.text === 'function') ? numeric.text() : String(numeric);
+                    
+                    if (typeof math !== 'undefined' && math && typeof math.evaluate === 'function') {
+                        let num2 = math.evaluate(t2);
+                        if (num2 && typeof num2.toNumber === 'function') num2 = num2.toNumber();
+                        if (typeof num2 === 'number' && Number.isFinite(num2)) return num2;
+                    }
+                    const n2 = Number(t2);
+                    if (Number.isFinite(n2)) return n2;
+                } catch (e) {
+                    
+                }
+            }
 
-    let fGuess;
-    try{ fGuess = compileUserExpr(expr); }
-    catch(e){ setStatus('表达式解析失败：' + (e.message || '请检查括号与函数名')); setScore(0, false); return; }
-
-    const {similarity, overlap} = scoreSimilarity(target.f, fGuess);
-    addGuessCurve(fGuess, tries+1);
-    tries++;
-
-    setStatus(`评分区间重叠有效点：${Math.round(overlap*100)}%`);
-    setScore(similarity, similarity>=WIN_THRESHOLD);
-
-    if(similarity >= WIN_THRESHOLD){
-      setStatus('恭喜！相似度 ≥ 90%，你赢了！');
-      gameOver = true;
-      enableInput(false);
-      showReveal(target.expr);
-      return;
+            
+            const n3 = Number(txt);
+            if (Number.isFinite(n3)) return n3;
+        } catch (e) {
+            
+        }
+        return NaN;
     }
-    if(tries >= MAX_TRIES){
-      setStatus('次数已用尽，未达到 90%。再接再厉！');
-      gameOver = true;
-      enableInput(false);
-      showReveal(target.expr);
-      return;
-    }
-    updateTries();
-  }
 
-  // 事件
+    
+    if (typeof nerdamer !== 'undefined') {
+        const derivatives = new Array(order + 1);
+        let diffObj;
+        for (let k = 0; k <= order; k++) {
+            try {
+                
+                if (k === 0) {
+                    
+                    diffObj = nerdamer('(' + parsableExpr + ')');
+                } else {
+                    
+                    
+                    diffObj = nerdamer('diff((' + diffObj + '),' + variable + ',1)');
+                }
+
+                
+                
+                let atCenter;
+                try {
+                    
+                    const aIsNumber = (typeof a === 'number') || (typeof a === 'string' && /^[+-]?\d+(\.\d+)?([eE][+\-]?\d+)?$/.test(a.trim()));
+                    const subsValue = aIsNumber ? Number(a) : String(a);
+                    
+                    const subs = {};
+                    subs[variable] = subsValue;
+                    atCenter = diffObj.evaluate(subs);
+                } catch (eEval) {
+                    
+                    const exprText = (diffObj && typeof diffObj.text === 'function') ? diffObj.text() : String(diffObj);
+                    const replaced = exprText.replace(new RegExp('\\b' + variable + '\\b', 'g'), '(' + String(a) + ')');
+                    atCenter = nerdamer(replaced);
+                }
+
+                
+                const numeric = toNumberFromNerdamerVal(atCenter);
+                if (!isFiniteNum(numeric)) {
+                    
+                    throw new Error('非有限数值');
+                }
+                derivatives[k] = numeric;
+            } catch (e) {
+                
+                try {
+                    let derivativeNode = math.parse(parsableExpr);
+                    for (let j = 0; j < k; j++) derivativeNode = math.derivative(derivativeNode, variable);
+                    const val = derivativeNode.evaluate({ [variable]: a });
+                    if (!isFiniteNum(val)) throw new Error('降级数值求导结果非有限');
+                    derivatives[k] = val;
+                } catch (e2) {
+                    
+                    throw new Error(`在 x=${a} 处的 ${k} 阶符号导数无效`);
+                }
+            }
+        }
+        return derivatives;
+    } else {
+        
+        let derivativeNode = math.parse(parsableExpr);
+        const derivatives = [];
+        for (let k = 0; k <= order; k++) {
+            if (k > 0) derivativeNode = math.derivative(derivativeNode, variable);
+            const scope = {};
+            scope[variable] = a;
+            const val = derivativeNode.evaluate(scope);
+            if (!isFiniteNum(val)) {
+                throw new Error(`在 x=${a} 处的 ${k} 阶符号导数无效`);
+            }
+            derivatives.push(val);
+        }
+        return derivatives;
+    }
+}
+
+    function formatCoeff(n) {
+        if (Math.abs(n) < 1e-9) return '0';
+        if (Math.abs(n) > 1e6 || Math.abs(n) < 1e-4) return n.toExponential(4);
+        return n.toFixed(7).replace(/\.?0+$/, '');
+    }
+
+    
+        
+    function generateTaylorSeries(funcExpr, a, order) {
+        
+        funcExpr=funcExpr.replace(/arctan/ig, 'atan')
+        const derivativeValues = getSymbolicDerivatives(target.expr, a, order);
+        
+        let terms = [];
+        let factorial = 1;
+
+        for (let k = 0; k <= order; k++) {
+            if (k > 0) factorial *= k;
+            
+            const coeff = derivativeValues[k] / factorial;
+
+            if (Math.abs(coeff) > 1e-9) {
+                let termStr = formatCoeff(coeff);
+                if (k > 0) {
+                    const xPart = a === 0 ? 'x' : `(x - ${formatCoeff(a)})`.replace(/- -/g, '+ ');
+                    termStr += ` * ${xPart}`;
+                    if (k > 1) termStr += `^${k}`;
+                }
+                terms.push(termStr);
+            }
+        }
+        return terms.join(' + ').replace(/\+ -/g, '- ');
+    }
+
+    
+    function generatePadeApproximant(funcExpr, a, order) {
+        const n = order;
+        const m = Math.ceil(n / 2);
+        const k = Math.floor(n / 2);
+        funcExpr=funcExpr.replace(/arctan/gi, 'atan')
+
+        
+        const shiftedFunc = (u) => target.f(u + a);
+        const shiftedExprString = math.parse(target.expr).transform(node => {
+            if (node.isSymbolNode && node.name === 'x') return math.parse(`(u + ${a})`);
+            return node;
+        }).toString();
+        const derivativeValuesAtZero = getSymbolicDerivatives(shiftedExprString, 0, n, 'u');
+        
+        
+        let taylorCoeffs = [];
+        let factorial = 1;
+        for (let i = 0; i <= n; i++) {
+            if (i > 0) factorial *= i;
+            taylorCoeffs.push(derivativeValuesAtZero[i] / factorial);
+        }
+        
+        
+        const M = math.zeros(k, k);
+        const b = math.zeros(k, 1);
+        for (let i = 0; i < k; i++) {
+            b.set([i, 0], -taylorCoeffs[m + i + 1]);
+            for (let j = 0; j < k; j++) {
+                if ((m + i - j) >= 0 && (m + i - j) < taylorCoeffs.length) {
+                   M.set([i, j], taylorCoeffs[m + i - j]);
+                }
+            }
+        }
+        
+        let q_coeffs;
+        try {
+            if (k > 0) {
+               q_coeffs = math.lusolve(M, b).toArray().flat();
+            } else {
+               q_coeffs = [];
+            }
+        } catch(e) { throw new Error("无法求解帕德近似系数（矩阵奇异）"); }
+
+        const Q = [1, ...q_coeffs];
+
+        
+        const P = [];
+        for (let i = 0; i <= m; i++) {
+            let pi = 0;
+            for (let j = 0; j <= i; j++) {
+                if (j < Q.length && (i - j) < taylorCoeffs.length) {
+                   pi += taylorCoeffs[i - j] * Q[j];
+                }
+            }
+            P.push(pi);
+        }
+
+        
+        const buildPoly = (coeffs, variable='u') => coeffs.map((c, i) => {
+            if (Math.abs(c) < 1e-9) return null;
+            let term = formatCoeff(c);
+            if (i > 0) term += `*${variable}`;
+            if (i > 1) term += `^${i}`;
+            return term;
+        }).filter(t => t).join(' + ').replace(/\+ -/g, '- ');
+
+        const P_u_str = buildPoly(P, 'u');
+        const Q_u_str = buildPoly(Q, 'u');
+        const rationalExprInU = `(${P_u_str || '0'}) / (${Q_u_str || '1'})`;
+        
+        if (a === 0) {
+            return rationalExprInU.replace(/u/g, 'x');
+        } else {
+            const aStr = formatCoeff(a);
+            const replacement = `(x - ${aStr})`.replace(/- -/g, '+ ');
+            return rationalExprInU.replace(/u/g, replacement);
+        }
+    }
+
+    
+    function generateLeastSquaresFit(func, x_min, x_max, degree) {
+        const numPoints = Math.max(degree * 4, 100);
+        const xs = Array.from({ length: numPoints }, (_, i) => x_min + i * (x_max - x_min) / (numPoints - 1));
+        const ys = xs.map(func).map(y => isFiniteNum(y) ? y : 0);
+
+        const X = xs.map(x => Array.from({ length: degree + 1 }, (_, i) => Math.pow(x, i)));
+        const y_vec = math.matrix(ys);
+
+        try {
+            const XT = math.transpose(X);
+            const XTX = math.multiply(XT, X);
+            const XTy = math.multiply(XT, y_vec);
+            const coeffs = math.lusolve(XTX, XTy).flat();
+            
+            return coeffs.map((c, i) => {
+                if (Math.abs(c) < 1e-9) return null;
+                let term = formatCoeff(c);
+                if (i > 0) term += `*x`;
+                if (i > 1) term += `^${i}`;
+                return term;
+            }).filter(t => t).join(' + ').replace(/\+ -/g, '- ');
+        } catch(e) {
+            throw new Error("最小二乘法拟合失败（矩阵奇异或数据问题）");
+        }
+    }
+
+    
+    function generateChebyshevApprox(func, x_min, x_max, degree) {
+        const n = degree;
+        
+        const nodes = Array.from({length: n + 1}, (_, k) => 
+            0.5 * (x_min + x_max) + 0.5 * (x_max - x_min) * Math.cos(Math.PI * (k + 0.5) / (n + 1))
+        );
+        const y_vals = nodes.map(x => func(x));
+        if (y_vals.some(y => !isFiniteNum(y))) {
+            throw new Error("在切比雪夫节点上函数值无效");
+        }
+        
+        
+        const T = (k, x) => Math.cos(k * Math.acos(clamp(x, -1, 1)));
+        const coeffs = [];
+        for (let j = 0; j <= n; j++) {
+            let sum = 0;
+            for (let k = 0; k <= n; k++) {
+                
+                const x_k_norm = (nodes[k] - 0.5 * (x_min + x_max)) / (0.5 * (x_max - x_min));
+                sum += y_vals[k] * T(j, x_k_norm);
+            }
+            coeffs.push(2 / (n + 1) * sum);
+        }
+        coeffs[0] /= 2;
+
+        
+        
+        const chebyCoeffs = [[1]];
+        for (let i = 1; i <= n; i++) {
+            const prev = chebyCoeffs[i - 1];
+            const current = new Array(i + 1).fill(0);
+            for (let j = 0; j < i; j++) current[j+1] += 2 * prev[j];
+            if (i > 1) {
+                const prev2 = chebyCoeffs[i-2];
+                for(let j=0; j<i-1; j++) current[j] -= prev2[j];
+            }
+            chebyCoeffs.push(current);
+        }
+
+        const polyCoeffs = new Array(n + 1).fill(0);
+        for (let i = 0; i <= n; i++) { 
+            const c_i = coeffs[i]; 
+            const T_coeffs = chebyCoeffs[i]; 
+            for (let j = 0; j < T_coeffs.length; j++) { 
+                polyCoeffs[j] += c_i * T_coeffs[j];
+            }
+        }
+
+        
+        const a = x_min, b = x_max;
+        const normVar = `((2*x - (${a+b})) / (${b-a}))`;
+        return polyCoeffs.map((c, i) => {
+            if (Math.abs(c) < 1e-9) return null;
+            let term = formatCoeff(c);
+            if (i > 0) term += `*(${normVar})`;
+            if (i > 1) term += `^${i}`;
+            return term;
+        }).filter(t => t).join(' + ').replace(/\+ -/g, '- ');
+    }
+
+    
+    
+    
+
+    /**
+     * @brief 拉格朗日插值多项式 (使用切比雪夫节点)
+     */
+    function generateLagrangePolynomial(func, x_min, x_max, degree) {
+        const n = degree + 1;
+        // 使用切比雪夫节点以获得更好的稳定性
+        const nodes = Array.from({length: n}, (_, k) => 
+            0.5 * (x_min + x_max) + 0.5 * (x_max - x_min) * Math.cos(Math.PI * (2*k + 1) / (2 * n))
+        );
+        const y_vals = nodes.map(x => func(x));
+
+        if (y_vals.some(y => !isFiniteNum(y))) {
+            throw new Error("在插值节点上函数值无效");
+        }
+
+        const polyMultiply = (p1, p2) => {
+            const res = new Array(p1.length + p2.length - 1).fill(0);
+            for (let i = 0; i < p1.length; i++) {
+                for (let j = 0; j < p2.length; j++) {
+                    res[i + j] += p1[i] * p2[j];
+                }
+            }
+            return res;
+        };
+
+        let totalCoeffs = new Array(n).fill(0);
+        for (let j = 0; j < n; j++) {
+            let basisCoeffs = [1];
+            let denominator = 1;
+            for (let i = 0; i < n; i++) {
+                if (i === j) continue;
+                basisCoeffs = polyMultiply(basisCoeffs, [-nodes[i], 1]); // (x - nodes[i])
+                denominator *= (nodes[j] - nodes[i]);
+            }
+            const scale = y_vals[j] / denominator;
+            for (let k = 0; k < n; k++) {
+                totalCoeffs[k] += basisCoeffs[k] * scale;
+            }
+        }
+
+        return totalCoeffs.map((c, i) => {
+            if (Math.abs(c) < 1e-9) return null;
+            let term = formatCoeff(c);
+            if (i > 0) term += `*x`;
+            if (i > 1) term += `^${i}`;
+            return term;
+        }).filter(t => t).join(' + ').replace(/\+ -/g, '- ') || '0';
+    }
+
+    function generateNeuralNetworkFit(func, x_min, x_max, num_neurons) {
+        if (num_neurons < 1) throw new Error("神经网络至少需要1个神经元");
+        
+        
+        const num_points = 200;
+        const xs = Array.from({ length: num_points }, (_, i) => x_min + i * (x_max - x_min) / (num_points - 1));
+        const ys = xs.map(func);
+
+        if (ys.some(y => !isFiniteNum(y))) {
+            throw new Error("在采样点上函数值无效");
+        }
+
+        const y_mean = ys.reduce((s, v) => s + v, 0) / num_points;
+        const y_std = Math.sqrt(ys.reduce((s, v) => s + (v - y_mean) ** 2, 0) / num_points) || 1;
+        const x_mean = (x_min + x_max) / 2;
+        const x_scale = (x_max - x_min) / 2 || 1;
+
+        const xs_norm = xs.map(x => (x - x_mean) / x_scale);
+        const ys_norm = ys.map(y => (y - y_mean) / y_std);
+
+        
+        
+        const rand = () => (Math.random() - 0.5) * 2;
+        let a = Array.from({length: num_neurons}, () => rand() * 0.5);
+        let b = Array.from({length: num_neurons}, () => rand() * 0.1);
+        let c = Array.from({length: num_neurons}, () => rand() * 0.5);
+        let d = 0;
+
+        
+        const learning_rate = 0.01;
+        const iterations = Math.round(Math.sqrt(num_neurons)*4000);
+
+        for (let iter = 0; iter < iterations; iter++) {
+            let grad_a = new Array(num_neurons).fill(0);
+            let grad_b = new Array(num_neurons).fill(0);
+            let grad_c = new Array(num_neurons).fill(0);
+            let grad_d = 0;
+
+            for (let i = 0; i < num_points; i++) {
+                const x = xs_norm[i];
+                const y_true = ys_norm[i];
+                
+                const pre_activations = a.map((val, j) => val * x + b[j]);
+                const activations = pre_activations.map(Math.tanh);
+                const y_pred = activations.reduce((sum, val, j) => sum + c[j] * val, 0) + d;
+                
+                const error = y_pred - y_true;
+                const common_grad = 2 * error / num_points;
+
+                
+                grad_d += common_grad;
+                for (let j = 0; j < num_neurons; j++) {
+                    const tanh_val = activations[j];
+                    const d_tanh = 1 - tanh_val * tanh_val; 
+                    grad_c[j] += common_grad * tanh_val;
+                    const common_neuron_grad = common_grad * c[j] * d_tanh;
+                    grad_b[j] += common_neuron_grad;
+                    grad_a[j] += common_neuron_grad * x;
+                }
+            }
+
+            
+            for (let j = 0; j < num_neurons; j++) {
+                a[j] -= learning_rate * grad_a[j];
+                b[j] -= learning_rate * grad_b[j];
+                c[j] -= learning_rate * grad_c[j];
+            }
+            d -= learning_rate * grad_d;
+        }
+
+        
+        const x_norm_str = `((x - ${formatCoeff(x_mean)}) / ${formatCoeff(x_scale)})`;
+        
+        let hidden_layer_terms = c.map((c_j, j) => {
+            if (Math.abs(c_j) < 1e-9) return null;
+            const inner_expr = `${formatCoeff(a[j])} * ${x_norm_str} + ${formatCoeff(b[j])}`;
+            return `${formatCoeff(c_j)} * tanh(${inner_expr})`;
+        }).filter(t => t).join(' + ');
+
+        if (!hidden_layer_terms) hidden_layer_terms = '0';
+        
+        const norm_expr = `(${hidden_layer_terms} + ${formatCoeff(d)})`;
+        const final_expr = `${formatCoeff(y_std)} * ${norm_expr} + ${formatCoeff(y_mean)}`;
+        
+        return final_expr.replace(/\+ -/g, '- ');
+    }
+    
+    function generateFourierSeries(func, x_min, x_max, num_harmonics) {
+        const N = 512; 
+        if (num_harmonics > N / 2) {
+            throw new Error(`谐波数量不能超过采样点数的一半 (${N/2})`);
+        }
+        const L = x_max - x_min;
+        const ys = Array.from({length: N}, (_, i) => {
+            const x = x_min + i * L / N;
+            return func(x);
+        });
+
+        if (ys.some(y => !isFiniteNum(y))) {
+            throw new Error("在FFT采样点上函数值无效");
+        }
+
+        
+        const fft = (real, imag) => {
+            const n = real.length;
+            if (n === 0) return;
+            const log2n = Math.log2(n);
+            if (log2n !== Math.floor(log2n)) throw new Error("FFT长度必须是2的幂");
+
+            for (let i = 0; i < n; i++) {
+                let j = 0;
+                for (let k = 0; k < log2n; k++) {
+                    if ((i >> k) & 1) j |= 1 << (log2n - 1 - k);
+                }
+                if (j > i) {
+                    [real[i], real[j]] = [real[j], real[i]];
+                    [imag[i], imag[j]] = [imag[j], imag[i]];
+                }
+            }
+            
+            for (let size = 2; size <= n; size *= 2) {
+                const halfsize = size / 2;
+                const tab_angle = -2 * Math.PI / size;
+                const w_real = Math.cos(tab_angle);
+                const w_imag = Math.sin(tab_angle);
+                for (let i = 0; i < n; i += size) {
+                    let v_real = 1, v_imag = 0;
+                    for (let j = i; j < i + halfsize; j++) {
+                        const k = j + halfsize;
+                        const t_real = real[k] * v_real - imag[k] * v_imag;
+                        const t_imag = real[k] * v_imag + imag[k] * v_real;
+                        real[k] = real[j] - t_real;
+                        imag[k] = imag[j] - t_imag;
+                        real[j] += t_real;
+                        imag[j] += t_imag;
+                        const next_v_real = v_real * w_real - v_imag * w_imag;
+                        v_imag = v_real * w_imag + v_imag * w_real;
+                        v_real = next_v_real;
+                    }
+                }
+            }
+        };
+
+        const real = ys;
+        const imag = new Array(N).fill(0);
+        fft(real, imag);
+
+        let terms = [];
+        const a0 = real[0] / N;
+        if (Math.abs(a0) > 1e-9) terms.push(formatCoeff(a0));
+        
+        const freq_factor = `(2*\\pi/${formatCoeff(L)}) * (x - ${formatCoeff(x_min)})`;
+
+        for (let k = 1; k <= num_harmonics; k++) {
+            const ak = 2 * real[k] / N;
+            const bk = -2 * imag[k] / N;
+            
+            if (Math.abs(ak) > 1e-9) {
+                terms.push(`${formatCoeff(ak)}*cos(${k}*(${freq_factor}))`);
+            }
+            if (Math.abs(bk) > 1e-9) {
+                terms.push(`${formatCoeff(bk)}*sin(${k}*(${freq_factor}))`);
+            }
+        }
+        
+        return terms.join(' + ').replace(/\+ -/g, '- ').replace(/\\pi/g,'pi') || '0';
+    }
+
+    
+    
+    
+
+
+    function performExpansion() {
+        if (!target) {
+            setStatus("请先开始一个新游戏", true);
+            return;
+        }
+
+        const method = document.getElementById('expansionMethodSelect').value;
+        const pointEl = document.getElementById('expansionPointInput');
+        const orderEl = document.getElementById('expansionOrderInput');
+        const resultEl = document.getElementById('expansionResult');
+        
+        const a = parseFloat(pointEl.value);
+        let n = parseInt(orderEl.value, 10);
+
+        if (isNaN(a)) { setStatus("展开点必须是数字", true); return; }
+        if (isNaN(n) || n < 0 || n > 50) { setStatus("参数必须是 0 到 50 之间的整数", true); return; }
+
+        let expansionExpr = '';
+        let title = '';
+        try {
+            calculator.removeExpression({id: 'expansion-func'});
+            switch(method) {
+                case 'taylor':
+                    title = `${n} 阶泰勒展开 (在 x=${a})`;
+                    expansionExpr = generateTaylorSeries(target.expr, a, n);
+                    break;
+                case 'pade':
+                    title = `[${Math.ceil(n / 2)}/${Math.floor(n / 2)}] 阶帕德近似 (在 x=${a})`;
+                    expansionExpr = generatePadeApproximant(target.expr, a, n);
+                    break;
+                case 'leastsquares':
+                    title = `${n} 次最小二乘拟合`;
+                    expansionExpr = generateLeastSquaresFit(target.f, fit_x_min, fit_x_max, n);
+                    break;
+                case 'chebyshev':
+                    title = `${n} 次切比雪夫近似`;
+                    expansionExpr = generateChebyshevApprox(target.f, fit_x_min, fit_x_max, n);
+                    break;
+                case 'lagrange':
+                    title = `${n} 次拉格朗日插值`;
+                    expansionExpr = generateLagrangePolynomial(target.f, fit_x_min, fit_x_max, n);
+                    break;
+                case 'neuralnetwork':
+                    if (n == 0) n = 1; 
+                    title = `神经网络拟合`;
+                    expansionExpr = generateNeuralNetworkFit(target.f, fit_x_min, fit_x_max, n);
+                    break;
+                case 'fourier':
+                    title = `${n} 阶傅里叶级数`;
+                    expansionExpr = generateFourierSeries(target.f, fit_x_min, fit_x_max, n);
+                    break;
+            }
+            if (!expansionExpr) expansionExpr = '0';
+            
+            resultEl.innerHTML = `近似函数 (${title}): <code>${expansionExpr}</code><button id="copyExpansionBtn" class="secondary" style="margin-left: 8px; padding: 4px 8px; font-size: 12px; font-weight: normal;">复制</button>`;
+            
+            // 为新添加的复制按钮绑定事件
+            const copyBtn = document.getElementById('copyExpansionBtn');
+            if (copyBtn) {
+              copyBtn.addEventListener('click', () => {
+                fallbackCopyTextToClipboard(expansionExpr)
+              });
+            }
+            resultEl.classList.add('visible');
+            
+            calculator.setExpression({ 
+                id: 'expansion-func', 
+                latex: 'y = ' + exprToDesmosLatex(expansionExpr), 
+                color: '#22c55e', 
+                lineWidth: 2.5,
+                lineStyle: Desmos.Styles.DOTTED
+            });
+            setStatus("已生成并绘制近似函数");
+
+        } catch(e) {
+            setStatus("生成失败: " + e.message, true);
+            resultEl.classList.remove('visible');
+            calculator.removeExpression({id: 'expansion-func'});
+        }
+    }
+    
+    function fallbackCopyTextToClipboard(text) {
+            const textArea = document.createElement("textarea");
+            textArea.value = text;
+            textArea.style.position = "fixed";
+            textArea.style.top = "0";
+            textArea.style.left = "0";
+            textArea.style.width = "2em";
+            textArea.style.height = "2em";
+            textArea.style.padding = "0";
+            textArea.style.border = "none";
+            textArea.style.outline = "none";
+            textArea.style.boxShadow = "none";
+            textArea.style.background = "transparent";
+            document.body.appendChild(textArea);
+            textArea.focus();
+            textArea.select();
+            try {
+                const successful = document.execCommand('copy');
+            } catch (err) {
+                console.error("复制失败: " + err);
+            }
+            document.body.removeChild(textArea);
+        }
+    function updateExpansionUI() {
+        const method = document.getElementById('expansionMethodSelect').value;
+        const pointLabel = document.getElementById('expansionPointLabel');
+        const pointInput = document.getElementById('expansionPointInput');
+        const orderLabel = document.getElementById('expansionOrderLabel');
+
+        const globalMethods = ['leastsquares', 'chebyshev', 'lagrange', 'fourier', 'neuralnetwork'];
+        if (globalMethods.includes(method)) {
+            pointLabel.style.display = 'none';
+            pointInput.style.display = 'none';
+        } else {
+            pointLabel.style.display = 'inline';
+            pointInput.style.display = 'inline';
+        }
+
+        if (method === 'neuralnetwork') {
+            orderLabel.textContent = '神经元数量=';
+        } else {
+            orderLabel.textContent = '阶数/次数=';
+        }
+    }
+
+    document.getElementById('expansionMethodSelect').addEventListener('change', updateExpansionUI);
+
+    document.getElementById('expandBtn').addEventListener('click', performExpansion);
+  
   document.getElementById('submitBtn').addEventListener('click', submit);
-  document.getElementById('newBtn').addEventListener('click', newGame);
+  document.getElementById('newBtn').addEventListener('click', ()=>{ if(calculator){ newGame(); } else { setStatus('Desmos 尚未就绪，请稍候...'); } });
   document.getElementById('resetBtn').addEventListener('click', resetView);
-  document.getElementById('exprInput').addEventListener('keydown', e=>{ if(e.key==='Enter'){ submit(); } });
+  document.getElementById('revealBtn').addEventListener('click', revealAnswer);
+  document.getElementById('exprInput').addEventListener('keydown', e=>{ if(e.key==='Enter') submit(); });
+  document.getElementById('difficultySelect').addEventListener('change', () => { if(calculator) newGame(); });
 
-  // 启动
-  newGame();
+  updateExpansionUI(); // 初始化UI状态
+
 })();
 </script>
 </body>
-</html>
+</html>```
